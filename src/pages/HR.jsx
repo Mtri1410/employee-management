@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { UserCheck, ShieldCheck, Mail, AlertTriangle, Users, BookOpen } from 'lucide-react';
+import { UserCheck, ShieldCheck, Mail, AlertTriangle, Users, BookOpen, Eye, Upload, Calendar, Download } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export default function HR() {
@@ -11,6 +11,23 @@ export default function HR() {
   const [selectedDept, setSelectedDept] = useState('');
   const [selectedPos, setSelectedPos] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Details Modal and Contract Renewal States
+  const [selectedUserForDetails, setSelectedUserForDetails] = useState(null);
+  const [isRenewMode, setIsRenewMode] = useState(false);
+  const [newExpiryDate, setNewExpiryDate] = useState('');
+  const [uploadedContractName, setUploadedContractName] = useState('');
+  const [isEditingProfileByHR, setIsEditingProfileByHR] = useState(false);
+  const [hrEditForm, setHrEditForm] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    cccd: '',
+    dob: '',
+    gender: 'Nam',
+    address: '',
+    startDate: ''
+  });
 
   // HR Filters State
   const [hrSearch, setHrSearch] = useState('');
@@ -106,6 +123,38 @@ export default function HR() {
     pushLog(`[Bảo mật] Tài khoản ${user.fullName} đã được kích hoạt. Đã gửi email chứa: Mã NV (${user.employeeId}), Họ tên, Email đăng ký và Mật khẩu tạm thời được mã hóa bảo mật đến hòm thư nhân viên.`, 'success');
     
     confetti({ particleCount: 70, spread: 50 });
+  };
+
+  const handleSaveProfileByHR = () => {
+    if (!hrEditForm.fullName.trim() || !hrEditForm.email.trim()) {
+      setErrorMsg('Vui lòng điền đầy đủ Họ và tên và Email.');
+      return;
+    }
+
+    setAllUsers(prev => prev.map(u => {
+      if (u.employeeId === selectedUserForDetails.employeeId) {
+        const updated = {
+          ...u,
+          fullName: hrEditForm.fullName.trim(),
+          email: hrEditForm.email.trim(),
+          phone: hrEditForm.phone.trim(),
+          cccd: hrEditForm.cccd.trim(),
+          dob: hrEditForm.dob,
+          gender: hrEditForm.gender,
+          address: hrEditForm.address.trim(),
+          startDate: hrEditForm.startDate
+        };
+        // Update details modal state immediately
+        setSelectedUserForDetails(updated);
+        return updated;
+      }
+      return u;
+    }));
+
+    setIsEditingProfileByHR(false);
+    setErrorMsg('');
+    pushLog(`HR đã cập nhật thông tin chi tiết nhân sự ${selectedUserForDetails.fullName} (${selectedUserForDetails.employeeId}) thành công.`, 'success');
+    confetti({ particleCount: 30, spread: 25 });
   };
 
   return (
@@ -332,7 +381,7 @@ export default function HR() {
                   </td>
 
                   {/* Actions */}
-                  <td className="px-6 py-4 text-right space-x-2">
+                  <td className="px-6 py-4 text-right space-x-2 text-nowrap">
                     {!user.isProfileComplete && (
                       <button
                         onClick={() => handleApproveProfile(user)}
@@ -358,12 +407,27 @@ export default function HR() {
                         </button>
                       </>
                     ) : (
-                      <button
-                        onClick={() => handleEditClick(user)}
-                        className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-lg text-xs font-semibold transition border border-slate-700/80"
-                      >
-                        Điều chuyển
-                      </button>
+                      <>
+                        <button
+                          onClick={() => {
+                            setSelectedUserForDetails(user);
+                            setIsRenewMode(false);
+                            setNewExpiryDate(user.contractExpiry === 'Vô thời hạn' ? '' : user.contractExpiry || '');
+                            setUploadedContractName('');
+                            setIsEditingProfileByHR(false);
+                            setErrorMsg('');
+                          }}
+                          className="px-2.5 py-1.5 bg-teal-500/10 hover:bg-teal-500 text-teal-400 hover:text-slate-955 rounded-lg text-xs font-bold transition border border-teal-500/20 hover:border-transparent"
+                        >
+                          Chi tiết
+                        </button>
+                        <button
+                          onClick={() => handleEditClick(user)}
+                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-lg text-xs font-semibold transition border border-slate-700/80"
+                        >
+                          Điều chuyển
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>
@@ -373,6 +437,344 @@ export default function HR() {
         </div>
       </div>
 
+      {/* Details & Contract Renewal Modal */}
+      {selectedUserForDetails && (
+        <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-[4px] flex items-center justify-center z-[9998] p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-850 rounded-3xl shadow-2xl p-6 max-w-2xl w-full relative overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="absolute -top-12 -left-12 w-24 h-24 bg-teal-500/10 blur-2xl rounded-full pointer-events-none" />
+            <div className="absolute -bottom-12 -right-12 w-24 h-24 bg-purple-500/10 blur-2xl rounded-full pointer-events-none" />
+            
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5 pb-3 border-b border-slate-800/80">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center font-bold text-sm uppercase">
+                  {selectedUserForDetails.fullName.split(' ').pop().substring(0, 2)}
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-200">{selectedUserForDetails.fullName}</h4>
+                  <p className="text-[10px] text-slate-500 font-mono">Mã nhân sự: {selectedUserForDetails.employeeId} | {selectedUserForDetails.department || 'Chưa xếp phòng'}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedUserForDetails(null)}
+                className="text-slate-500 hover:text-slate-350 transition text-sm font-bold bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-855"
+              >
+                ✕ Đóng
+              </button>
+            </div>
+
+            {/* Profile Grid */}
+            {isEditingProfileByHR ? (
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-xs col-span-2">
+                <div className="space-y-1">
+                  <label className="text-slate-500 block">Họ và tên *</label>
+                  <input
+                    type="text"
+                    required
+                    value={hrEditForm.fullName}
+                    onChange={(e) => setHrEditForm(prev => ({ ...prev, fullName: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-500 block">Địa chỉ Email *</label>
+                  <input
+                    type="email"
+                    required
+                    value={hrEditForm.email}
+                    onChange={(e) => setHrEditForm(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-500 block">Số điện thoại</label>
+                  <input
+                    type="text"
+                    value={hrEditForm.phone}
+                    onChange={(e) => setHrEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-500 block">Số CCCD / Hộ chiếu</label>
+                  <input
+                    type="text"
+                    value={hrEditForm.cccd}
+                    onChange={(e) => setHrEditForm(prev => ({ ...prev, cccd: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-500 block">Ngày sinh</label>
+                  <input
+                    type="date"
+                    value={hrEditForm.dob}
+                    onChange={(e) => setHrEditForm(prev => ({ ...prev, dob: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-500 block">Giới tính</label>
+                  <select
+                    value={hrEditForm.gender}
+                    onChange={(e) => setHrEditForm(prev => ({ ...prev, gender: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  >
+                    <option value="Nam">Nam</option>
+                    <option value="Nữ">Nữ</option>
+                    <option value="Khác">Khác</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-500 block">Ngày nhận việc</label>
+                  <input
+                    type="date"
+                    value={hrEditForm.startDate}
+                    onChange={(e) => setHrEditForm(prev => ({ ...prev, startDate: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-500 block">Địa chỉ liên hệ</label>
+                  <input
+                    type="text"
+                    value={hrEditForm.address}
+                    onChange={(e) => setHrEditForm(prev => ({ ...prev, address: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-xs">
+                <div>
+                  <span className="text-slate-500 block mb-0.5">Địa chỉ Email</span>
+                  <span className="text-slate-250 font-semibold">{selectedUserForDetails.email || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block mb-0.5">Số điện thoại</span>
+                  <span className="text-slate-250 font-semibold">{selectedUserForDetails.phone || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block mb-0.5">Số CCCD / Hộ chiếu</span>
+                  <span className="text-slate-250 font-semibold">{selectedUserForDetails.cccd || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block mb-0.5">Ngày sinh</span>
+                  <span className="text-slate-250 font-semibold">{selectedUserForDetails.dob || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block mb-0.5">Giới tính</span>
+                  <span className="text-slate-250 font-semibold">{selectedUserForDetails.gender || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block mb-0.5">Địa chỉ liên hệ</span>
+                  <span className="text-slate-250 font-semibold">{selectedUserForDetails.address || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block mb-0.5">Ngày nhận việc</span>
+                  <span className="text-slate-250 font-semibold">{selectedUserForDetails.startDate || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block mb-0.5">Vai trò quyền hạn</span>
+                  <span className="text-teal-400 font-bold uppercase">{selectedUserForDetails.role}</span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-slate-500 block mb-0.5">Thời hạn hợp đồng hiện tại</span>
+                  <span className={`inline-block px-2.5 py-0.5 rounded-full font-bold mt-1 text-[11px] ${getContractStatus(selectedUserForDetails.contractExpiry).class}`}>
+                    {getContractStatus(selectedUserForDetails.contractExpiry).label}
+                  </span>
+                </div>
+
+                {/* Uploaded Contract File if any */}
+                <div className="col-span-2 bg-slate-950/40 p-3 rounded-xl border border-slate-855 mt-2">
+                  <span className="text-[10px] text-slate-500 block font-bold uppercase tracking-wider mb-2">Tài liệu hợp đồng đính kèm</span>
+                  {selectedUserForDetails.contractFile ? (
+                    <div className="flex justify-between items-center bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                      <span className="text-slate-250 font-mono text-xs flex items-center gap-1.5">
+                        📄 {selectedUserForDetails.contractFile}
+                      </span>
+                      <button
+                        onClick={() => {
+                          pushLog(`HR tải xuống hợp đồng của ${selectedUserForDetails.fullName}`, 'success');
+                        }}
+                        className="text-[10px] text-teal-450 hover:underline font-bold"
+                      >
+                        Tải xuống
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-slate-550 italic">Chưa tải lên file hợp đồng ký kết.</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Action buttons (Renew & Upload File) */}
+            <div className="mt-6 pt-4 border-t border-slate-800/80 flex flex-col gap-4">
+              {isRenewMode ? (
+                // Renew Contract Interface
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-855 space-y-4 animate-in slide-in-from-bottom-2">
+                  <h5 className="text-xs font-bold text-teal-400">Gia hạn hợp đồng nhân sự</h5>
+                  {errorMsg && (
+                    <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-2.5 rounded-xl text-[10px] flex items-center gap-1.5 animate-in shake duration-300">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <span>{errorMsg}</span>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-slate-455 block font-bold uppercase">Ngày hết hạn hợp đồng mới</label>
+                      <input
+                        type="date"
+                        min="2026-07-02"
+                        value={newExpiryDate}
+                        onChange={(e) => {
+                          setErrorMsg('');
+                          setNewExpiryDate(e.target.value);
+                        }}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-slate-455 block font-bold uppercase">Tải lên tệp hợp đồng mới (PDF)</label>
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) setUploadedContractName(file.name);
+                        }}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1 text-xs text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:font-semibold file:bg-slate-800 file:text-teal-400 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => {
+                        setErrorMsg('');
+                        setIsRenewMode(false);
+                      }}
+                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 text-xs font-semibold rounded-lg border border-slate-800 transition"
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!newExpiryDate) {
+                          setErrorMsg('Vui lòng chọn ngày hết hạn hợp đồng mới.');
+                          return;
+                        }
+                        const selectedDate = new Date(newExpiryDate);
+                        const todayDate = new Date('2026-07-02');
+                        if (selectedDate < todayDate) {
+                          setErrorMsg('Lỗi: Ngày hết hạn mới không được nhỏ hơn ngày hiện tại (2026-07-02).');
+                          return;
+                        }
+                        setErrorMsg('');
+                        // Update in Context
+                        setAllUsers(prev => prev.map(u => {
+                          if (u.employeeId === selectedUserForDetails.employeeId) {
+                            return {
+                              ...u,
+                              contractExpiry: newExpiryDate,
+                              contractFile: uploadedContractName || u.contractFile || `HopDong_LaoDong_${u.fullName.replace(/\s+/g, '_')}_GiaHan.pdf`
+                            };
+                          }
+                          return u;
+                        }));
+                        pushLog(`Gia hạn hợp đồng nhân sự ${selectedUserForDetails.fullName} thành công đến ${newExpiryDate}.`, 'success');
+                        setSelectedUserForDetails(null);
+                        setIsRenewMode(false);
+                        confetti({ particleCount: 50, spread: 35 });
+                      }}
+                      className="px-4 py-1.5 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 text-xs font-bold rounded-lg transition"
+                    >
+                      Lưu gia hạn
+                    </button>
+                  </div>
+                </div>
+              ) : isEditingProfileByHR ? (
+                // Profile Edit mode actions for HR
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => {
+                      setIsEditingProfileByHR(false);
+                      setErrorMsg('');
+                    }}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-750 text-slate-350 rounded-xl text-xs font-semibold border border-slate-700/80 transition"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    onClick={handleSaveProfileByHR}
+                    className="px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 text-xs font-bold rounded-xl transition shadow-lg shadow-teal-500/10"
+                  >
+                    Lưu hồ sơ
+                  </button>
+                </div>
+              ) : (
+                // Actions selection
+                <div className="flex gap-3 justify-end flex-wrap">
+                  <button
+                    onClick={() => {
+                      setIsEditingProfileByHR(true);
+                      setHrEditForm({
+                        fullName: selectedUserForDetails.fullName,
+                        email: selectedUserForDetails.email,
+                        phone: selectedUserForDetails.phone || '',
+                        cccd: selectedUserForDetails.cccd || '',
+                        dob: selectedUserForDetails.dob || '',
+                        gender: selectedUserForDetails.gender || 'Nam',
+                        address: selectedUserForDetails.address || '',
+                        startDate: selectedUserForDetails.startDate || ''
+                      });
+                      setErrorMsg('');
+                    }}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-750 text-slate-350 rounded-xl text-xs font-semibold border border-slate-700/80 transition flex items-center gap-1.5"
+                  >
+                    ✏️ Sửa hồ sơ
+                  </button>
+
+                  <div className="relative">
+                    <input
+                      type="file"
+                      id="contract-upload-direct"
+                      accept=".pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setAllUsers(prev => prev.map(u => {
+                            if (u.employeeId === selectedUserForDetails.employeeId) {
+                              return { ...u, contractFile: file.name };
+                            }
+                            return u;
+                          }));
+                          pushLog(`Đã tải lên tệp hợp đồng "${file.name}" cho nhân sự ${selectedUserForDetails.fullName}`, 'success');
+                          setSelectedUserForDetails(prev => ({ ...prev, contractFile: file.name }));
+                          confetti({ particleCount: 20, spread: 20 });
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor="contract-upload-direct"
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700/80 cursor-pointer flex items-center gap-1.5 transition select-none"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-teal-400" /> Upload Hợp đồng (PDF)
+                    </label>
+                  </div>
+                  <button
+                    onClick={() => setIsRenewMode(true)}
+                    className="px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-teal-500/10 hover:shadow-teal-500/20 transition flex items-center gap-1.5"
+                  >
+                    <Calendar className="w-3.5 h-3.5" /> Gia hạn hợp đồng
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -11,7 +11,9 @@ export default function Accounting() {
     allUsers, 
     attendanceHistory, 
     pushLog, 
-    showDialog 
+    showDialog,
+    departments,
+    positions
   } = useApp();
 
   // Core folders sensitive contracts mock list
@@ -26,6 +28,8 @@ export default function Accounting() {
   const [summaryMonth, setSummaryMonth] = useState(now.getMonth() + 1);
   const [summaryYear, setSummaryYear] = useState(now.getFullYear());
   const [accountantSearch, setAccountantSearch] = useState('');
+  const [summaryDept, setSummaryDept] = useState('');
+  const [summaryPos, setSummaryPos] = useState('');
 
   // Document filters state
   const [docSearch, setDocSearch] = useState('');
@@ -43,12 +47,13 @@ export default function Accounting() {
 
   // Filtered users for accountant search
   const filteredUsers = allUsers.filter(user => {
-    if (!accountantSearch) return true;
-    const q = accountantSearch.toLowerCase();
-    return (
+    const q = accountantSearch.toLowerCase().trim();
+    const matchSearch = !accountantSearch ||
       user.fullName.toLowerCase().includes(q) ||
-      user.employeeId.toLowerCase().includes(q)
-    );
+      user.employeeId.toLowerCase().includes(q);
+    const matchDept = !summaryDept || user.department === summaryDept;
+    const matchPos = !summaryPos || user.position === summaryPos;
+    return matchSearch && matchDept && matchPos;
   });
 
   // Helper to calculate contract status relative to simulated current date 2026-07-02
@@ -98,7 +103,38 @@ export default function Accounting() {
       .reduce((a, b) => a + b, 0)
       .toFixed(1);
 
-    return { workedDays, lateDays, earlyDays, absentDays, leaveDays, totalHours };
+    let lateMinutes = 0;
+    let earlyMinutes = 0;
+
+    logs.forEach(l => {
+      // Calculate late minutes
+      if (l.clockIn && l.clockIn !== '-' && l.status === 'Đi muộn') {
+        const match = l.shift.match(/\((\d{2}):(\d{2})/);
+        if (match) {
+          const shiftStartMins = parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+          const [inH, inM] = l.clockIn.split(':').map(Number);
+          const clockInMins = inH * 60 + inM;
+          if (clockInMins > shiftStartMins) {
+            lateMinutes += (clockInMins - shiftStartMins);
+          }
+        }
+      }
+
+      // Calculate early minutes
+      if (l.clockOut && l.clockOut !== '-' && l.status === 'Về sớm') {
+        const match = l.shift.match(/-\s*(\d{2}):(\d{2})\)/);
+        if (match) {
+          const shiftEndMins = parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+          const [outH, outM] = l.clockOut.split(':').map(Number);
+          const clockOutMins = outH * 60 + outM;
+          if (clockOutMins < shiftEndMins) {
+            earlyMinutes += (shiftEndMins - clockOutMins);
+          }
+        }
+      }
+    });
+
+    return { workedDays, lateDays, earlyDays, absentDays, leaveDays, totalHours, lateMinutes, earlyMinutes };
   };
 
   // PDF Upload state
@@ -451,6 +487,31 @@ export default function Accounting() {
                 </button>
               )}
             </div>
+
+            {/* Department Filter */}
+            <select
+              value={summaryDept}
+              onChange={(e) => setSummaryDept(e.target.value)}
+              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+            >
+              <option value="">Tất cả Phòng ban</option>
+              {departments.map(d => (
+                <option key={d.id} value={d.name}>{d.name}</option>
+              ))}
+            </select>
+
+            {/* Position Filter */}
+            <select
+              value={summaryPos}
+              onChange={(e) => setSummaryPos(e.target.value)}
+              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+            >
+              <option value="">Tất cả Chức vụ</option>
+              {positions.map(p => (
+                <option key={p.id} value={p.name}>{p.name}</option>
+              ))}
+            </select>
+
             {/* Month picker */}
             <select
               value={summaryMonth}
@@ -547,7 +608,7 @@ export default function Accounting() {
                             ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
                             : 'text-slate-600'
                         }`}>
-                          {hasData ? s.lateDays : '—'}
+                          {hasData ? (s.lateDays > 0 ? `${s.lateDays} ngày (${s.lateMinutes} phút)` : '0 ngày') : '—'}
                         </span>
                       </td>
                       {/* Early */}
@@ -557,7 +618,7 @@ export default function Accounting() {
                             ? 'text-orange-400 bg-orange-500/10 border border-orange-500/20'
                             : 'text-slate-600'
                         }`}>
-                          {hasData ? s.earlyDays : '—'}
+                          {hasData ? (s.earlyDays > 0 ? `${s.earlyDays} ngày (${s.earlyMinutes} phút)` : '0 ngày') : '—'}
                         </span>
                       </td>
                       {/* Paid leave */}

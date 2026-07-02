@@ -276,6 +276,11 @@ export const AppProvider = ({ children }) => {
   const [gpsWithinRange, setGpsWithinRange] = useState(true);
   const [systemTimeOffset, setSystemTimeOffset] = useState(0); // Offset in minutes
   const [firebaseLogs, setFirebaseLogs] = useState([]);
+
+  // System parameters configuration
+  const [allowedWifiIp, setAllowedWifiIp] = useState('192.168.1.100');
+  const [allowedDistance, setAllowedDistance] = useState(100);
+  const [gracePeriod, setGracePeriod] = useState(10);
   
   // Real time punch state for active user
   const [isCheckedIn, setIsCheckedIn] = useState(false);
@@ -514,7 +519,13 @@ export const AppProvider = ({ children }) => {
         closeDialog,
         undoToast,
         setUndoToast,
-        triggerUndo
+        triggerUndo,
+        allowedWifiIp,
+        setAllowedWifiIp,
+        allowedDistance,
+        setAllowedDistance,
+        gracePeriod,
+        setGracePeriod
       }}
     >
       {children}
