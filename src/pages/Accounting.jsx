@@ -56,6 +56,18 @@ export default function Accounting() {
     return matchSearch && matchDept && matchPos;
   });
 
+  const formatDate = (dateStr) => {
+    if (!dateStr || dateStr === 'Vô thời hạn' || dateStr === '—') return dateStr;
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return dateStr;
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+    }
+    return dateStr;
+  };
+
   // Helper to calculate contract status relative to simulated current date 2026-07-02
   const getContractStatus = (expiryDate) => {
     if (expiryDate === 'Vô thời hạn' || !expiryDate) {
@@ -67,11 +79,11 @@ export default function Accounting() {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
     if (diffDays < 0) {
-      return { label: `Hết hạn (${expiryDate})`, class: 'text-rose-400 bg-rose-500/10 border border-rose-500/20' };
+      return { label: `Hết hạn (${formatDate(expiryDate)})`, class: 'text-rose-400 bg-rose-500/10 border border-rose-500/20' };
     } else if (diffDays <= 60) {
-      return { label: `Sắp hết hạn (${expiryDate})`, class: 'text-amber-400 bg-amber-500/10 border border-amber-500/20 animate-pulse' };
+      return { label: `Sắp hết hạn (${formatDate(expiryDate)})`, class: 'text-amber-400 bg-amber-500/10 border border-amber-500/20 animate-pulse' };
     } else {
-      return { label: expiryDate, class: 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' };
+      return { label: formatDate(expiryDate), class: 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' };
     }
   };
 

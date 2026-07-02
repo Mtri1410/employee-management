@@ -6,6 +6,24 @@ import confetti from 'canvas-confetti';
 export default function HR() {
   const { currentUser, allUsers, setAllUsers, departments, positions, pushLog } = useApp();
 
+  const formatDate = (dateStr) => {
+    if (!dateStr || dateStr === 'Vô thời hạn' || dateStr === '—') return dateStr;
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return dateStr;
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+    }
+    return dateStr;
+  };
+
+  const validateVietnamesePhone = (phone) => {
+    if (!phone) return true;
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    return /^(0|84|\+84)(3|5|7|8|9)([0-9]{8})$/.test(cleanPhone);
+  };
+
   const [editingUserId, setEditingUserId] = useState(null);
   const [selectedRole, setSelectedRole] = useState('');
   const [selectedDept, setSelectedDept] = useState('');
@@ -47,11 +65,11 @@ export default function HR() {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
     if (diffDays < 0) {
-      return { label: `Hết hạn (${expiryDate})`, class: 'text-rose-400 bg-rose-500/10 border border-rose-500/20', key: 'expired' };
+      return { label: `Hết hạn (${formatDate(expiryDate)})`, class: 'text-rose-400 bg-rose-500/10 border border-rose-500/20', key: 'expired' };
     } else if (diffDays <= 60) {
-      return { label: `Sắp hết hạn (${expiryDate})`, class: 'text-amber-400 bg-amber-500/10 border border-amber-500/20 animate-pulse', key: 'near_expiry' };
+      return { label: `Sắp hết hạn (${formatDate(expiryDate)})`, class: 'text-amber-400 bg-amber-500/10 border border-amber-500/20 animate-pulse', key: 'near_expiry' };
     } else {
-      return { label: expiryDate, class: 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20', key: 'active' };
+      return { label: formatDate(expiryDate), class: 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20', key: 'active' };
     }
   };
 
@@ -128,6 +146,11 @@ export default function HR() {
   const handleSaveProfileByHR = () => {
     if (!hrEditForm.fullName.trim() || !hrEditForm.email.trim()) {
       setErrorMsg('Vui lòng điền đầy đủ Họ và tên và Email.');
+      return;
+    }
+
+    if (hrEditForm.phone && !validateVietnamesePhone(hrEditForm.phone)) {
+      setErrorMsg('Số điện thoại không đúng định dạng Việt Nam (phải gồm 10 chữ số bắt đầu bằng 03, 05, 07, 08, 09).');
       return;
     }
 
@@ -560,7 +583,7 @@ export default function HR() {
                 </div>
                 <div>
                   <span className="text-slate-500 block mb-0.5">Ngày sinh</span>
-                  <span className="text-slate-250 font-semibold">{selectedUserForDetails.dob || '—'}</span>
+                  <span className="text-slate-250 font-semibold">{formatDate(selectedUserForDetails.dob) || '—'}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 block mb-0.5">Giới tính</span>
@@ -572,7 +595,7 @@ export default function HR() {
                 </div>
                 <div>
                   <span className="text-slate-500 block mb-0.5">Ngày nhận việc</span>
-                  <span className="text-slate-250 font-semibold">{selectedUserForDetails.startDate || '—'}</span>
+                  <span className="text-slate-250 font-semibold">{formatDate(selectedUserForDetails.startDate) || '—'}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 block mb-0.5">Vai trò quyền hạn</span>

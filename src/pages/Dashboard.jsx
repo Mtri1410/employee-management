@@ -33,6 +33,24 @@ export default function Dashboard() {
     setAllUsers
   } = useApp();
 
+  const formatDate = (dateStr) => {
+    if (!dateStr || dateStr === 'Vô thời hạn' || dateStr === '—') return dateStr;
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return dateStr;
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+    }
+    return dateStr;
+  };
+
+  const validateVietnamesePhone = (phone) => {
+    if (!phone) return true;
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    return /^(0|84|\+84)(3|5|7|8|9)([0-9]{8})$/.test(cleanPhone);
+  };
+
   const [time, setTime] = useState(new Date());
   const [punchLoading, setPunchLoading] = useState(false);
   const [toast, setToast] = useState(null);
@@ -222,6 +240,11 @@ export default function Dashboard() {
     if (e) e.preventDefault();
     if (!profileForm.fullName.trim() || !profileForm.email.trim()) {
       showToast('Vui lòng điền đầy đủ Họ và tên và Email.', 'error');
+      return;
+    }
+
+    if (profileForm.phone && !validateVietnamesePhone(profileForm.phone)) {
+      showToast('Số điện thoại không đúng định dạng Việt Nam (phải gồm 10 chữ số bắt đầu bằng 03, 05, 07, 08, 09).', 'error');
       return;
     }
 
@@ -493,7 +516,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <span className="text-slate-500 block mb-0.5">Ngày sinh</span>
-                <span className="text-slate-200 font-semibold">{currentUser.dob || '—'}</span>
+                <span className="text-slate-200 font-semibold">{formatDate(currentUser.dob) || '—'}</span>
               </div>
               <div>
                 <span className="text-slate-500 block mb-0.5">Giới tính</span>
@@ -517,7 +540,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <span className="text-slate-500 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Thời hạn hợp đồng</span>
-                <span className="text-emerald-400 font-bold">{currentUser.contractExpiry || 'Vô thời hạn'}</span>
+                <span className="text-emerald-400 font-bold">{formatDate(currentUser.contractExpiry) || 'Vô thời hạn'}</span>
               </div>
             </div>
           ) : (
