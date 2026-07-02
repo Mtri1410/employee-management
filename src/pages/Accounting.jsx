@@ -1,0 +1,651 @@
+import React, { useState, useEffect } from 'react';
+import { useApp } from '../context/AppContext';
+import { FolderLock, FileText, Upload, ShieldAlert, KeyRound, Clock, ShieldCheck, Download, ExternalLink } from 'lucide-react';
+import confetti from 'canvas-confetti';
+
+export default function Accounting() {
+  const { 
+    currentUser, 
+    documents, 
+    setDocuments, 
+    allUsers, 
+    attendanceHistory, 
+    pushLog, 
+    showDialog 
+  } = useApp();
+
+  // Month/Year filter for attendance summary
+  const now = new Date();
+  const [summaryMonth, setSummaryMonth] = useState(now.getMonth() + 1);
+  const [summaryYear, setSummaryYear] = useState(now.getFullYear());
+
+  // Compute attendance summary for each user for the selected month/year
+  const getAttendanceSummary = (employeeId) => {
+    const logs = attendanceHistory.filter(log => {
+      if (log.employeeId !== employeeId) return false;
+      const d = new Date(log.date);
+      return d.getMonth() + 1 === summaryMonth && d.getFullYear() === summaryYear;
+    });
+
+    const workedDays  = logs.filter(l => l.status === 'Hợp lệ').length;
+    const lateDays    = logs.filter(l => l.status === 'Đi muộn').length;
+    const earlyDays   = logs.filter(l => l.status === 'Về sớm').length;
+    const absentDays  = logs.filter(l => l.status === 'Vắng mặt' || l.status === 'Nghỉ không phép').length;
+    const leaveDays   = logs.filter(l => l.status === 'Nghỉ phép').length;
+    const totalHours  = logs
+      .map(l => parseFloat(l.actualHours) || 0)
+      .reduce((a, b) => a + b, 0)
+      .toFixed(1);
+
+    return { workedDays, lateDays, earlyDays, absentDays, leaveDays, totalHours };
+  };
+
+  // PDF Upload state
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [docCategory, setDocCategory] = useState('Chứng từ thanh toán');
+  const [uploadError, setUploadError] = useState('');
+
+  // 2FA Security states
+  const [is2FAPhase, setIs2FAPhase] = useState('none'); // 'none' | 'password' | 'otp' | 'verified'
+  const [corePassword, setCorePassword] = useState('');
+  const [otpInput, setOtpInput] = useState('');
+  const [simulatedOtp, setSimulatedOtp] = useState('');
+  const [countdown, setCountdown] = useState(30);
+  const [timerActive, setTimerActive] = useState(false);
+  const [securityError, setSecurityError] = useState('');
+
+  // OTP Timer countdown effect
+  useEffect(() => {
+    let interval = null;
+    if (timerActive && countdown > 0) {
+      interval = setInterval(() => {
+        setCountdown((prev) => prev - 1);
+      }, 1000);
+    } else if (countdown === 0 && timerActive) {
+      setTimerActive(false);
+      pushLog('Mã xác minh OTP 2FA đã hết hiệu lực. Vui lòng bấm Gửi lại mã.', 'error');
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, countdown]);
+
+  const handleFileUpload = (e) => {
+    setUploadError('');
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate PDF extension only
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setUploadError('Định dạng tệp không hợp lệ! Hệ thống kế toán chỉ tiếp nhận tệp tin PDF (.pdf).');
+      pushLog(`Từ chối upload: Tệp ${file.name} sai định dạng.`, 'error');
+      e.target.value = null;
+      return;
+    }
+
+    // Check size limit: 5MB
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setUploadError('Dung lượng tệp vượt quá giới hạn cho phép (5MB).');
+      pushLog(`Từ chối upload: Tệp ${file.name} quá lớn (${(file.size/1024/1024).toFixed(1)} MB).`, 'error');
+      e.target.value = null;
+      return;
+    }
+
+    setUploadedFile(file);
+    pushLog(`Đã chuẩn bị tải lên tệp tin: ${file.name}`);
+  };
+
+  const submitUpload = (e) => {
+    e.preventDefault();
+    if (!uploadedFile) return;
+
+    pushLog(`Đang gửi tài liệu lên hệ thống chứng từ kế toán...`);
+
+    setTimeout(() => {
+      const newDoc = {
+        id: Date.now(),
+        name: uploadedFile.name,
+        employeeId: currentUser.employeeId,
+        uploadDate: new Date().toISOString().replace('T', ' ').slice(0, 16),
+        type: docCategory
+      };
+
+      setDocuments(prev => [newDoc, ...prev]);
+      setUploadedFile(null);
+      pushLog(`Tải lên tài liệu ${newDoc.name} thành công. Loại: ${docCategory}`, 'success');
+      confetti({ particleCount: 50, spread: 40 });
+    }, 800);
+  };
+
+  // 2FA Flow Executions
+  const trigger2FA = () => {
+    setIs2FAPhase('password');
+    setCorePassword('');
+    setSecurityError('');
+  };
+
+  const handlePasswordSubmit = (e) => {
+    e.preventDefault();
+    setSecurityError('');
+
+    // Secure Pass Core validation (preset to 'core123' or 'admin')
+    if (corePassword === 'core123' || corePassword === 'admin') {
+      pushLog('Xác thực lớp 1 (Pass Core) thành công.', 'success');
+      
+      // Generate simulated 6-digit OTP code
+      const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      setSimulatedOtp(generatedOtp);
+      setCountdown(30);
+      setTimerActive(true);
+      setIs2FAPhase('otp');
+      setOtpInput('');
+
+      pushLog(`Hệ thống gửi mã OTP 2FA về email. Mã bảo mật là: ${generatedOtp} (Hiệu lực: 30s)`, 'success');
+    } else {
+      setSecurityError('Mật khẩu bảo mật phân hệ (Pass Core) không chính xác.');
+      pushLog('Xác thực lớp 1 thất bại: Sai Pass Core.', 'error');
+    }
+  };
+
+  const handleOtpSubmit = (e) => {
+    e.preventDefault();
+    setSecurityError('');
+
+    if (countdown === 0) {
+      setSecurityError('Mã OTP đã hết hiệu lực. Vui lòng bấm gửi lại mã để nhận mã mới.');
+      return;
+    }
+
+    if (otpInput === simulatedOtp) {
+      pushLog('Xác thực lớp 2 (OTP 6 số) thành công. Mở khóa thư mục Hợp đồng Core.', 'success');
+      setIs2FAPhase('verified');
+      confetti({ particleCount: 100, spread: 80, origin: { y: 0.6 } });
+    } else {
+      setSecurityError('Mã xác thực OTP không chính xác.');
+      pushLog('Xác thực lớp 2 thất bại: Sai mã OTP.', 'error');
+    }
+  };
+
+  const handleResendOtp = () => {
+    setSecurityError('');
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    setSimulatedOtp(generatedOtp);
+    setCountdown(30);
+    setTimerActive(true);
+    setOtpInput('');
+    pushLog(`Hệ thống gửi lại mã OTP 2FA mới về email. Mã bảo mật mới là: ${generatedOtp} (Hiệu lực: 30s)`, 'success');
+  };
+
+  // Core folders sensitive contracts mock list
+  const coreContracts = [
+    { id: 'c1', name: 'HĐLĐ_Lê_Văn_C_Giám_Đốc_Nhân_Sự.pdf', date: '2024-11-01', size: '2.4 MB' },
+    { id: 'c2', name: 'HĐMB_Thiết_Bị_Nhà_Xưởng_GENX_2026.pdf', date: '2026-03-12', size: '5.8 MB' },
+    { id: 'c3', name: 'Báo_Cáo_Kiểm_Toán_Độc_Lập_GENXPKS_2025.pdf', date: '2026-01-20', size: '12.4 MB' }
+  ];
+
+  return (
+    <div className="space-y-6">
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Core directory security entry */}
+        <div className="lg:col-span-1 bg-slate-900/30 border border-slate-855 rounded-3xl p-6 flex flex-col justify-between shadow-xl min-h-[300px]">
+          <div>
+            <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-400 w-12 h-12 flex items-center justify-center mb-4">
+              <FolderLock className="w-7 h-7" />
+            </div>
+            <h3 className="text-base font-bold text-slate-200">Thư mục Hợp đồng Core</h3>
+            <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">
+              Khu vực lưu trữ hồ sơ tuyệt mật gồm Hợp đồng lao động cốt cán và thỏa thuận kinh tế thương mại. Yêu cầu xác thực 2 yếu tố nghiêm ngặt để truy cập.
+            </p>
+          </div>
+
+          <div className="mt-6">
+            {is2FAPhase === 'verified' ? (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-xl text-xs flex items-center gap-2 font-semibold">
+                <ShieldCheck className="w-4 h-4" />
+                Đang mở khóa thư mục (Đã xác minh)
+              </div>
+            ) : (
+              <button
+                onClick={trigger2FA}
+                className="w-full py-3 bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-slate-950 font-bold rounded-xl text-xs shadow-lg shadow-orange-500/10 hover:shadow-orange-500/20 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2"
+              >
+                <KeyRound className="w-4 h-4" />
+                Truy cập Thư mục Core
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Upload Form - Visible ONLY for KeToan */}
+        <div className="lg:col-span-2 bg-slate-900/30 border border-slate-855 rounded-3xl p-6 shadow-xl flex flex-col justify-between">
+          <div>
+            <h3 className="text-base font-bold text-slate-200 flex items-center gap-2 mb-1">
+              <Upload className="w-5 h-5 text-teal-400" />
+              Tải lên Chứng từ Kế toán
+            </h3>
+            <p className="text-slate-400 text-xs leading-relaxed">
+              Số hóa hóa đơn hoặc chứng từ chi tiêu. Chỉ chấp nhận tệp tin định dạng PDF với dung lượng dưới 5MB.
+            </p>
+          </div>
+
+          {currentUser.role === 'KeToan' || currentUser.role === 'Admin' ? (
+            <form onSubmit={submitUpload} className="mt-4 space-y-4">
+              {uploadError && (
+                <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-3 rounded-xl text-xs">
+                  {uploadError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Category selector */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-400">Phân loại chứng từ</label>
+                  <select
+                    value={docCategory}
+                    onChange={(e) => setDocCategory(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  >
+                    <option value="Chứng từ thanh toán">Chứng từ thanh toán / Hoá đơn</option>
+                    <option value="Báo cáo tài chính">Báo cáo tài chính nội bộ</option>
+                    <option value="Hợp đồng lao động">Hợp đồng lao động / NDA</option>
+                    <option value="Cam kết bảo mật">Cam kết bảo mật</option>
+                  </select>
+                </div>
+
+                {/* File picker */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-400">Tệp tin PDF đính kèm *</label>
+                  <input
+                    type="file"
+                    required
+                    accept=".pdf"
+                    onChange={handleFileUpload}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-400 file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-850 file:text-teal-400 file:cursor-pointer cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={!uploadedFile}
+                className="w-full py-3 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 text-slate-950 font-bold rounded-xl text-xs shadow-lg shadow-teal-500/10 hover:shadow-teal-500/20 transition"
+              >
+                Tải chứng từ lên hệ thống
+              </button>
+            </form>
+          ) : (
+            <div className="mt-4 p-5 bg-slate-950 border border-slate-850 rounded-2xl flex items-center gap-3 text-amber-500/80">
+              <ShieldAlert className="w-6 h-6 shrink-0" />
+              <p className="text-xs leading-relaxed">
+                <span className="font-semibold block text-slate-350">Tính năng bị ẩn (UI Level Truncation)</span>
+                Chỉ người dùng có vai trò Kế toán viên (KeToan) mới được quyền nhìn thấy và thực hiện tải lên tài liệu chứng từ kế toán.
+              </p>
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      {/* Contract Core protected list - Renders if verified */}
+      {is2FAPhase === 'verified' && (
+        <div className="bg-slate-900/30 border border-rose-500/20 rounded-3xl p-6 shadow-xl animate-in fade-in duration-300">
+          <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-800">
+            <h4 className="font-bold text-rose-400 flex items-center gap-2">
+              <FolderLock className="w-5 h-5 animate-pulse" />
+              Tài liệu Hợp đồng Thư mục Core
+            </h4>
+            <button
+              onClick={() => setIs2FAPhase('none')}
+              className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-slate-300 font-semibold transition"
+            >
+              Đóng/Khóa thư mục
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {coreContracts.map(doc => (
+              <div key={doc.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 hover:border-rose-500/20 transition flex flex-col justify-between gap-4">
+                <div className="flex gap-3 items-start">
+                  <FileText className="w-8 h-8 text-rose-400 shrink-0" />
+                  <div>
+                    <h5 className="text-xs font-bold text-slate-200 break-words leading-relaxed">{doc.name}</h5>
+                    <span className="text-[10px] text-slate-500 block mt-1">Ngày lập: {doc.date}</span>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center border-t border-slate-900 pt-3">
+                  <span className="text-[10px] font-mono text-slate-400">{doc.size}</span>
+                  <button
+                    onClick={() => {
+                      pushLog(`Tải xuống tài liệu Core: ${doc.name}`, 'success');
+                      showDialog({
+                        title: 'Tải xuống tài liệu',
+                        message: `Đang khởi động tải xuống tệp tin bảo mật: ${doc.name}`,
+                        type: 'success'
+                      });
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs text-rose-400 font-bold hover:underline"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Tải về
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Attendance Summary Table for Accountants */}
+      <div className="bg-slate-900/30 border border-slate-855 rounded-3xl overflow-hidden shadow-xl">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-slate-800/80 bg-slate-950/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h3 className="font-bold text-slate-200">Bảng Tổng Hợp Công Nhân Viên</h3>
+            <p className="text-slate-500 text-xs mt-0.5">
+              Tổng hợp dữ liệu chấm công thực tế theo tháng. Kế toán xuất file Excel và tự tính lương thủ công.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Month picker */}
+            <select
+              value={summaryMonth}
+              onChange={(e) => setSummaryMonth(Number(e.target.value))}
+              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                <option key={m} value={m}>Tháng {m}</option>
+              ))}
+            </select>
+            {/* Year picker */}
+            <select
+              value={summaryYear}
+              onChange={(e) => setSummaryYear(Number(e.target.value))}
+              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+            >
+              {[2024, 2025, 2026, 2027].map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => {
+                pushLog(`Kế toán xuất bảng tổng hợp công tháng ${summaryMonth}/${summaryYear}.`, 'success');
+                showDialog({
+                  title: 'Xuất file thành công',
+                  message: `Bảng tổng hợp công tháng ${summaryMonth}/${summaryYear} đã được xuất ra file Excel thành công. Kế toán có thể mở file để tính toán lương thủ công.`,
+                  type: 'success'
+                });
+              }}
+              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Xuất Excel
+            </button>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-950/40 text-slate-400 font-semibold border-b border-slate-850">
+                <th className="px-5 py-3.5 min-w-[180px]">Nhân viên</th>
+                <th className="px-5 py-3.5">Phòng ban / Chức vụ</th>
+                <th className="px-5 py-3.5 text-center text-emerald-400">Ngày công</th>
+                <th className="px-5 py-3.5 text-center text-amber-400">Đi trễ</th>
+                <th className="px-5 py-3.5 text-center text-orange-400">Về sớm</th>
+                <th className="px-5 py-3.5 text-center text-blue-400">Nghỉ phép</th>
+                <th className="px-5 py-3.5 text-center text-rose-400">Nghỉ không phép</th>
+                <th className="px-5 py-3.5 text-center text-slate-300">Tổng giờ làm</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-850/60 text-slate-300">
+              {allUsers.map((user) => {
+                const s = getAttendanceSummary(user.employeeId);
+                const hasData = Number(s.workedDays) + Number(s.lateDays) + Number(s.earlyDays) + Number(s.absentDays) + Number(s.leaveDays) > 0;
+
+                return (
+                  <tr key={user.employeeId} className="hover:bg-slate-900/10 transition">
+                    {/* Employee */}
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center font-bold text-xs uppercase shrink-0">
+                          {user.fullName.split(' ').pop().substring(0, 2)}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-slate-200 block">{user.fullName}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">{user.employeeId}</span>
+                        </div>
+                      </div>
+                    </td>
+                    {/* Dept / Position */}
+                    <td className="px-5 py-3.5">
+                      <span className="block text-slate-300">{user.department || <span className="text-slate-600 italic">Chưa xếp</span>}</span>
+                      <span className="text-[10px] text-slate-500">{user.position || ''}</span>
+                    </td>
+                    {/* Worked */}
+                    <td className="px-5 py-3.5 text-center">
+                      <span className="inline-block font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full text-[11px]">
+                        {hasData ? s.workedDays : '—'}
+                      </span>
+                    </td>
+                    {/* Late */}
+                    <td className="px-5 py-3.5 text-center">
+                      <span className={`inline-block font-bold px-2.5 py-0.5 rounded-full text-[11px] ${
+                        hasData && s.lateDays > 0
+                          ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+                          : 'text-slate-600'
+                      }`}>
+                        {hasData ? s.lateDays : '—'}
+                      </span>
+                    </td>
+                    {/* Early */}
+                    <td className="px-5 py-3.5 text-center">
+                      <span className={`inline-block font-bold px-2.5 py-0.5 rounded-full text-[11px] ${
+                        hasData && s.earlyDays > 0
+                          ? 'text-orange-400 bg-orange-500/10 border border-orange-500/20'
+                          : 'text-slate-600'
+                      }`}>
+                        {hasData ? s.earlyDays : '—'}
+                      </span>
+                    </td>
+                    {/* Paid leave */}
+                    <td className="px-5 py-3.5 text-center">
+                      <span className={`inline-block font-bold px-2.5 py-0.5 rounded-full text-[11px] ${
+                        hasData && s.leaveDays > 0
+                          ? 'text-blue-400 bg-blue-500/10 border border-blue-500/20'
+                          : 'text-slate-600'
+                      }`}>
+                        {hasData ? s.leaveDays : '—'}
+                      </span>
+                    </td>
+                    {/* Absent */}
+                    <td className="px-5 py-3.5 text-center">
+                      <span className={`inline-block font-bold px-2.5 py-0.5 rounded-full text-[11px] ${
+                        hasData && s.absentDays > 0
+                          ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20'
+                          : 'text-slate-600'
+                      }`}>
+                        {hasData ? s.absentDays : '—'}
+                      </span>
+                    </td>
+                    {/* Total hours */}
+                    <td className="px-5 py-3.5 text-center font-mono font-semibold text-slate-200">
+                      {hasData ? `${s.totalHours}h` : <span className="text-slate-600 italic text-[10px]">Chưa có dữ liệu</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Document table list */}
+      <div className="bg-slate-900/30 border border-slate-855 rounded-3xl overflow-hidden shadow-xl">
+        <div className="px-6 py-5 border-b border-slate-800/80 bg-slate-950/20">
+          <h3 className="font-bold text-slate-200">Danh sách tài liệu đã tải lên</h3>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm border-collapse">
+            <thead>
+              <tr className="bg-slate-950/40 text-slate-400 font-semibold border-b border-slate-800">
+                <th className="px-6 py-4">Tên tài liệu chứng từ</th>
+                <th className="px-6 py-4">Mã NV Upload</th>
+                <th className="px-6 py-4">Ngày giờ Upload</th>
+                <th className="px-6 py-4">Phân loại danh mục</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-850/80">
+              {documents.map((doc) => (
+                <tr key={doc.id} className="hover:bg-slate-900/10 transition duration-150">
+                  <td className="px-6 py-4 font-medium text-slate-200 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-teal-400 shrink-0" />
+                    {doc.name}
+                  </td>
+                  <td className="px-6 py-4 font-mono text-slate-400">{doc.employeeId}</td>
+                  <td className="px-6 py-4 text-slate-400">{doc.uploadDate}</td>
+                  <td className="px-6 py-4 text-slate-350 font-semibold">{doc.type}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 2FA Password Overlay Modal */}
+      {is2FAPhase === 'password' && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/90 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl animate-in zoom-in duration-200">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="p-3.5 bg-rose-500/10 rounded-full text-rose-500">
+                <FolderLock className="w-8 h-8" />
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-slate-100">Bảo mật Folder Core (Lớp 1)</h4>
+                <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">
+                  Nhập mật khẩu nội bộ phòng Kế toán để bắt đầu tiến trình xác thực.
+                </p>
+              </div>
+
+              {securityError && (
+                <div className="w-full bg-rose-500/10 border border-rose-500/20 text-rose-400 p-2.5 rounded-xl text-xs">
+                  {securityError}
+                </div>
+              )}
+
+              <form onSubmit={handlePasswordSubmit} className="w-full space-y-3.5">
+                <input
+                  type="password"
+                  required
+                  placeholder="Nhập mật khẩu (Mẹo: core123)"
+                  value={corePassword}
+                  onChange={(e) => { setCorePassword(e.target.value); setSecurityError(''); }}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-rose-500 text-center font-mono text-slate-200"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIs2FAPhase('none')}
+                    className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-750 text-xs font-semibold rounded-xl text-slate-350 transition"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-slate-950 font-bold rounded-xl text-xs transition"
+                  >
+                    Xác nhận
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2FA OTP Countdown Overlay Modal */}
+      {is2FAPhase === 'otp' && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/90 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl animate-in zoom-in duration-200">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="p-3.5 bg-rose-500/10 rounded-full text-rose-500">
+                <Clock className="w-8 h-8 animate-pulse" />
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-slate-100">Xác thực OTP 2FA (Lớp 2)</h4>
+                <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">
+                  Nhập mã xác thực 6 chữ số vừa được gửi về email phòng Kế toán.
+                </p>
+                <span className="text-sm text-teal-400 mt-2 block font-extrabold bg-slate-950 py-2 px-4 rounded-xl border border-teal-500/20">
+                  Mã OTP thử nghiệm (2FA): {simulatedOtp}
+                </span>
+                <span className="text-[10px] text-slate-500 mt-1 block">
+                  (Mẹo: Mã này cũng được ghi nhận tại Bảng log mô phỏng góc dưới phải)
+                </span>
+              </div>
+
+              {securityError && (
+                <div className="w-full bg-rose-500/10 border border-rose-500/20 text-rose-400 p-2.5 rounded-xl text-xs">
+                  {securityError}
+                </div>
+              )}
+
+              <form onSubmit={handleOtpSubmit} className="w-full space-y-4">
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    placeholder="X X X X X X"
+                    value={otpInput}
+                    onChange={(e) => { setOtpInput(e.target.value.replace(/\D/g, '')); setSecurityError(''); }}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-rose-500 text-center font-mono font-bold tracking-[0.4em] text-slate-200"
+                  />
+                  
+                  {/* Countdown display */}
+                  <div className="flex items-center justify-center gap-1 mt-2 text-xs font-semibold">
+                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                    {countdown > 0 ? (
+                      <span className="text-teal-400">Thời gian hiệu lực: {countdown} giây</span>
+                    ) : (
+                      <span className="text-rose-500">Mã xác thực đã hết hạn!</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setIs2FAPhase('none'); setTimerActive(false); }}
+                    className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-750 text-xs font-semibold rounded-xl text-slate-350 transition"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={countdown === 0}
+                    className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 disabled:bg-slate-800 disabled:text-slate-550 text-slate-950 font-bold rounded-xl text-xs transition"
+                  >
+                    Xác nhận
+                  </button>
+                </div>
+              </form>
+
+              {/* Resend button */}
+              <button
+                type="button"
+                disabled={timerActive && countdown > 0}
+                onClick={handleResendOtp}
+                className="text-xs text-teal-400 font-bold hover:underline disabled:text-slate-550 disabled:no-underline transition"
+              >
+                Gửi lại mã OTP
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
