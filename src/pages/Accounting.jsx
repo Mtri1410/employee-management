@@ -4,13 +4,13 @@ import { FolderLock, FileText, Upload, ShieldAlert, KeyRound, Clock, ShieldCheck
 import confetti from 'canvas-confetti';
 
 export default function Accounting() {
-  const { 
-    currentUser, 
-    documents, 
-    setDocuments, 
-    allUsers, 
-    attendanceHistory, 
-    pushLog, 
+  const {
+    currentUser,
+    documents,
+    setDocuments,
+    allUsers,
+    attendanceHistory,
+    pushLog,
     showDialog,
     departments,
     positions
@@ -77,7 +77,7 @@ export default function Accounting() {
     const expiry = new Date(expiryDate);
     const diffTime = expiry - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays < 0) {
       return { label: `Hết hạn (${formatDate(expiryDate)})`, class: 'text-rose-400 bg-rose-500/10 border border-rose-500/20' };
     } else if (diffDays <= 60) {
@@ -105,12 +105,12 @@ export default function Accounting() {
       return d.getMonth() + 1 === summaryMonth && d.getFullYear() === summaryYear;
     });
 
-    const workedDays  = logs.filter(l => l.status === 'Hợp lệ').length;
-    const lateDays    = logs.filter(l => l.status === 'Đi muộn').length;
-    const earlyDays   = logs.filter(l => l.status === 'Về sớm').length;
-    const absentDays  = logs.filter(l => l.status === 'Vắng mặt' || l.status === 'Nghỉ không phép').length;
-    const leaveDays   = logs.filter(l => l.status === 'Nghỉ phép').length;
-    const totalHours  = logs
+    const workedDays = logs.filter(l => l.status === 'Hợp lệ').length;
+    const lateDays = logs.filter(l => l.status === 'Đi muộn').length;
+    const earlyDays = logs.filter(l => l.status === 'Về sớm').length;
+    const absentDays = logs.filter(l => l.status === 'Vắng mặt' || l.status === 'Nghỉ không phép').length;
+    const leaveDays = logs.filter(l => l.status === 'Nghỉ phép').length;
+    const totalHours = logs
       .map(l => parseFloat(l.actualHours) || 0)
       .reduce((a, b) => a + b, 0)
       .toFixed(1);
@@ -194,7 +194,7 @@ export default function Accounting() {
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
       setUploadError('Dung lượng tệp vượt quá giới hạn cho phép (5MB).');
-      pushLog(`Từ chối upload: Tệp ${file.name} quá lớn (${(file.size/1024/1024).toFixed(1)} MB).`, 'error');
+      pushLog(`Từ chối upload: Tệp ${file.name} quá lớn (${(file.size / 1024 / 1024).toFixed(1)} MB).`, 'error');
       e.target.value = null;
       return;
     }
@@ -239,7 +239,7 @@ export default function Accounting() {
     // Secure Pass Core validation (preset to 'core123' or 'admin')
     if (corePassword === 'core123' || corePassword === 'admin') {
       pushLog('Xác thực lớp 1 (Pass Core) thành công.', 'success');
-      
+
       // Generate simulated 6-digit OTP code
       const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
       setSimulatedOtp(generatedOtp);
@@ -288,7 +288,7 @@ export default function Accounting() {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Upload Form - Visible ONLY for KeToan */}
       <div className="bg-slate-900/30 border border-slate-855 rounded-3xl p-6 shadow-xl flex flex-col justify-between">
         <div>
@@ -456,7 +456,7 @@ export default function Accounting() {
             <div>
               <h3 className="text-lg font-bold text-slate-200">Thư mục Hợp đồng Core (Đang khóa)</h3>
               <p className="text-slate-400 text-xs mt-2 leading-relaxed max-w-xl mx-auto">
-                Khu vực lưu trữ hồ sơ tuyệt mật gồm Hợp đồng lao động cốt cán và các thỏa thuận kinh tế thương mại đặc biệt của GENX. 
+                Khu vực lưu trữ hồ sơ tuyệt mật gồm Hợp đồng lao động cốt cán và các thỏa thuận kinh tế thương mại đặc biệt của GENX.
                 Yêu cầu xác thực 2 yếu tố nghiêm ngặt (Mật khẩu và OTP Email) để truy cập.
               </p>
             </div>
@@ -523,7 +523,6 @@ export default function Accounting() {
                 <option key={p.id} value={p.name}>{p.name}</option>
               ))}
             </select>
-
             {/* Month picker */}
             <select
               value={summaryMonth}
@@ -549,7 +548,7 @@ export default function Accounting() {
                 pushLog(`Kế toán xuất bảng tổng hợp công tháng ${summaryMonth}/${summaryYear}.`, 'success');
                 showDialog({
                   title: 'Xuất file thành công',
-                  message: `Bảng tổng hợp công tháng ${summaryMonth}/${summaryYear} đã được xuất ra file Excel thành công. Kế toán có thể mở file để tính toán lương thủ công.`,
+                  message: `Bảng tổng hợp công tháng ${summaryMonth}/${summaryYear} đã được xuất ra file Excel thành công. Kế toán có thể mở file để tính toán lương thực tế.`,
                   type: 'success'
                 });
               }}
@@ -560,26 +559,23 @@ export default function Accounting() {
             </button>
           </div>
         </div>
+
         {/* Table */}
         <div className="overflow-auto min-h-[300px] max-h-[500px]">
           <table className="w-full text-left text-xs border-collapse">
             <thead className="sticky top-0 z-10 bg-slate-950">
-              <tr className="bg-slate-950/40 text-slate-400 font-semibold border-b border-slate-850">
-                <th className="px-5 py-3.5 min-w-[180px]">Nhân viên</th>
+              <tr className="bg-slate-950/40 text-slate-400 font-semibold border-b border-slate-855">
+                <th className="px-5 py-3.5 min-w-[150px]">Nhân viên</th>
                 <th className="px-5 py-3.5">Phòng ban / Chức vụ</th>
                 <th className="px-5 py-3.5 text-center text-emerald-400">Ngày công</th>
-                <th className="px-5 py-3.5 text-center text-amber-400">Đi trễ</th>
-                <th className="px-5 py-3.5 text-center text-orange-400">Về sớm</th>
-                <th className="px-5 py-3.5 text-center text-blue-400">Nghỉ phép</th>
-                <th className="px-5 py-3.5 text-center text-rose-400">Nghỉ không phép</th>
-                <th className="px-5 py-3.5 text-center text-slate-300">Tổng giờ làm</th>
-                <th className="px-5 py-3.5 text-center">Thời hạn HĐ</th>
+                <th className="px-5 py-3.5 text-center text-slate-300">Tổng giờ</th>
+                <th className="px-5 py-3.5 text-right text-amber-400">Lương cơ bản</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-850/60 text-slate-300">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="px-5 py-10 text-center text-slate-500 italic">
+                  <td colSpan="5" className="px-5 py-10 text-center text-slate-500 italic">
                     Không tìm thấy nhân viên nào phù hợp bộ lọc.
                   </td>
                 </tr>
@@ -587,6 +583,11 @@ export default function Accounting() {
                 filteredUsers.map((user) => {
                   const s = getAttendanceSummary(user.employeeId);
                   const hasData = Number(s.workedDays) + Number(s.lateDays) + Number(s.earlyDays) + Number(s.absentDays) + Number(s.leaveDays) > 0;
+
+                  // Salary calculations
+                  const defaultBase = user.role === 'Admin' ? 25000000 : (user.role === 'HR' || user.role === 'KeToan') ? 18000000 : 12000000;
+                  const baseSalary = Number(user.baseSalary) || defaultBase;
+                  const totalSalary = baseSalary;
 
                   return (
                     <tr key={user.employeeId} className="hover:bg-slate-900/10 transition">
@@ -610,58 +611,16 @@ export default function Accounting() {
                       {/* Worked */}
                       <td className="px-5 py-3.5 text-center">
                         <span className="inline-block font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full text-[11px]">
-                          {hasData ? s.workedDays : '—'}
-                        </span>
-                      </td>
-                      {/* Late */}
-                      <td className="px-5 py-3.5 text-center">
-                        <span className={`inline-block font-bold px-2.5 py-0.5 rounded-full text-[11px] ${
-                          hasData && s.lateDays > 0
-                            ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
-                            : 'text-slate-600'
-                        }`}>
-                          {hasData ? (s.lateDays > 0 ? `${s.lateDays} ngày (${s.lateMinutes} phút)` : '0 ngày') : '—'}
-                        </span>
-                      </td>
-                      {/* Early */}
-                      <td className="px-5 py-3.5 text-center">
-                        <span className={`inline-block font-bold px-2.5 py-0.5 rounded-full text-[11px] ${
-                          hasData && s.earlyDays > 0
-                            ? 'text-orange-400 bg-orange-500/10 border border-orange-500/20'
-                            : 'text-slate-600'
-                        }`}>
-                          {hasData ? (s.earlyDays > 0 ? `${s.earlyDays} ngày (${s.earlyMinutes} phút)` : '0 ngày') : '—'}
-                        </span>
-                      </td>
-                      {/* Paid leave */}
-                      <td className="px-5 py-3.5 text-center">
-                        <span className={`inline-block font-bold px-2.5 py-0.5 rounded-full text-[11px] ${
-                          hasData && s.leaveDays > 0
-                            ? 'text-blue-400 bg-blue-500/10 border border-blue-500/20'
-                            : 'text-slate-600'
-                        }`}>
-                          {hasData ? s.leaveDays : '—'}
-                        </span>
-                      </td>
-                      {/* Absent */}
-                      <td className="px-5 py-3.5 text-center">
-                        <span className={`inline-block font-bold px-2.5 py-0.5 rounded-full text-[11px] ${
-                          hasData && s.absentDays > 0
-                            ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20'
-                            : 'text-slate-600'
-                        }`}>
-                          {hasData ? s.absentDays : '—'}
+                          {hasData ? s.workedDays : '0'}
                         </span>
                       </td>
                       {/* Total hours */}
                       <td className="px-5 py-3.5 text-center font-mono font-semibold text-slate-200">
-                        {hasData ? `${s.totalHours}h` : <span className="text-slate-600 italic text-[10px]">Chưa có dữ liệu</span>}
+                        {hasData ? `${s.totalHours}h` : '0h'}
                       </td>
-                      {/* Contract Expiry Status */}
-                      <td className="px-5 py-3.5 text-center">
-                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${getContractStatus(user.contractExpiry).class}`}>
-                          {getContractStatus(user.contractExpiry).label}
-                        </span>
+                      {/* Calculated total pay */}
+                      <td className="px-5 py-3.5 text-right font-extrabold font-mono text-amber-400 text-[11px]">
+                        {totalSalary.toLocaleString()}đ
                       </td>
                     </tr>
                   );
@@ -829,7 +788,7 @@ export default function Accounting() {
                     onChange={(e) => { setOtpInput(e.target.value.replace(/\D/g, '')); setSecurityError(''); }}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-rose-500 text-center font-mono font-bold tracking-[0.4em] text-slate-200"
                   />
-                  
+
                   {/* Countdown display */}
                   <div className="flex items-center justify-center gap-1 mt-2 text-xs font-semibold">
                     <Clock className="w-3.5 h-3.5 text-slate-500" />

@@ -1,101 +1,93 @@
-import React, { useState } from 'react';
-import { createPortal } from 'react-dom';
-import { useApp } from '../context/AppContext';
-import { UserCheck, ShieldCheck, Mail, AlertTriangle, Users, BookOpen, Eye, Upload, Calendar, Download } from 'lucide-react';
-import confetti from 'canvas-confetti';
+const fs = require('fs');
+const path = require('path');
 
-export default function HR() {
-  const { currentUser, allUsers, setAllUsers, departments, positions, pushLog } = useApp();
+const targetPath = path.resolve('src/pages/HR.jsx');
+let content = fs.readFileSync(targetPath, 'utf8');
 
-  const formatDate = (dateStr) => {
-    if (!dateStr || dateStr === 'Vô thời hạn' || dateStr === '—') return dateStr;
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return dateStr;
-    const parts = dateStr.split('-');
-    if (parts.length === 3) {
-      if (parts[0].length === 4) {
-        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+// Normalize line endings to LF to avoid CRLF mismatch on Windows
+content = content.replace(/\r\n/g, '\n');
+
+// 1. Add createPortal import
+const importStr = "import React, { useState } from 'react';";
+const newImportStr = "import React, { useState } from 'react';\nimport { createPortal } from 'react-dom';";
+if (content.includes(importStr) && !content.includes('createPortal')) {
+  content = content.replace(importStr, newImportStr);
+}
+
+// 2. Replace state variables
+const stateStr = `  const [editingUserId, setEditingUserId] = useState(null);\n  const [selectedRole, setSelectedRole] = useState('');\n  const [selectedDept, setSelectedDept] = useState('');\n  const [selectedPos, setSelectedPos] = useState('');\n  const [errorMsg, setErrorMsg] = useState('');`;
+const newStateStr = `  const [transferringUser, setTransferringUser] = useState(null);\n  const [transferDept, setTransferDept] = useState('');\n  const [transferPos, setTransferPos] = useState('');\n  const [transferRole, setTransferRole] = useState('');\n  const [errorMsg, setErrorMsg] = useState('');`;
+content = content.replace(stateStr, newStateStr);
+
+// 2b. Add baseSalary to hrEditForm
+const editFormStr = `  const [hrEditForm, setHrEditForm] = useState({\n    fullName: '',\n    email: '',\n    phone: '',\n    cccd: '',\n    dob: '',\n    gender: 'Nam',\n    address: '',\n    startDate: ''\n  });`;
+const newEditFormStr = `  const [hrEditForm, setHrEditForm] = useState({\n    fullName: '',\n    email: '',\n    phone: '',\n    cccd: '',\n    dob: '',\n    gender: 'Nam',\n    address: '',\n    startDate: '',\n    baseSalary: ''\n  });`;
+content = content.replace(editFormStr, newEditFormStr);
+
+// 3. Replace handleEditClick and handleSave with handleSaveTransfer
+const handlersPattern = `  const handleEditClick = (user) => {
+    setEditingUserId(user.employeeId);
+    setSelectedRole(user.role);
+    setSelectedDept(user.department);
+    setSelectedPos(user.position || '');
+    setErrorMsg('');
+  };
+
+  const handleSave = (userId) => {
+    setErrorMsg('');
+    const editingUser = allUsers.find(u => u.employeeId === userId);
+
+    const getRoleLevel = (r) => {
+      if (r === 'Admin') return 3;
+      if (r === 'HR' || r === 'KeToan') return 2;
+      return 1;
+    };
+
+    // 1. HR cannot edit Admin accounts
+    if (currentUser.role === 'HR' && editingUser.role === 'Admin') {
+      setErrorMsg('Thẩm quyền thất bại: Nhân sự (HR) không được phép thay đổi thông tin hay vai trò của Admin.');
+      pushLog(\`HR \${currentUser.fullName} cố gắng chỉnh sửa tài khoản Admin \${editingUser.fullName} bị chặn.\`, 'error');
+      return;
+    }
+
+    // 2. HR cannot assign Admin role to others
+    if (currentUser.role === 'HR' && selectedRole === 'Admin') {
+      setErrorMsg('Thẩm quyền thất bại: Nhân sự (HR) không có quyền cấp vai trò Quản trị viên (Admin).');
+      pushLog(\`HR \${currentUser.fullName} cố gắng phân bổ vai trò Admin cho \${editingUser.fullName} bị chặn.\`, 'error');
+      return;
+    }
+
+    // 3. HR cannot downgrade another HR or KeToan (level 2) to NhanVien (level 1)
+    if (currentUser.role === 'HR' && getRoleLevel(editingUser.role) === 2 && getRoleLevel(selectedRole) < 2) {
+      setErrorMsg('Thẩm quyền thất bại: Nhân sự (HR) không được phép hạ cấp vai trò của nhân sự quản lý ngang hàng (HR/Kế toán) xuống cấp Nhân viên.');
+      pushLog(\`HR \${currentUser.fullName} cố gắng hạ cấp vai trò của \${editingUser.fullName} (\${editingUser.role}) xuống \${selectedRole} bị chặn.\`, 'error');
+      return;
+    }
+
+    pushLog(\`Đang cập nhật vai trò và phòng ban cho nhân sự mã: \${userId}...\`);
+
+    setAllUsers(prev => prev.map(u => {
+      if (u.employeeId === userId) {
+        return { 
+          ...u, 
+          role: currentUser.role === 'HR' ? u.role : selectedRole, 
+          department: selectedDept, 
+          position: selectedPos 
+        };
       }
-    }
-    return dateStr;
-  };
+      return u;
+    }));
 
-  const validateVietnamesePhone = (phone) => {
-    if (!phone) return true;
-    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
-    return /^(0|84|\+84)(3|5|7|8|9)([0-9]{8})$/.test(cleanPhone);
-  };
-
-  const [transferringUser, setTransferringUser] = useState(null);
-  const [transferDept, setTransferDept] = useState('');
-  const [transferPos, setTransferPos] = useState('');
-  const [transferRole, setTransferRole] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
-
-  // Details Modal and Contract Renewal States
-  const [selectedUserForDetails, setSelectedUserForDetails] = useState(null);
-  const [isRenewMode, setIsRenewMode] = useState(false);
-  const [newExpiryDate, setNewExpiryDate] = useState('');
-  const [uploadedContractName, setUploadedContractName] = useState('');
-  const [isEditingProfileByHR, setIsEditingProfileByHR] = useState(false);
-  const [hrEditForm, setHrEditForm] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    cccd: '',
-    dob: '',
-    gender: 'Nam',
-    address: '',
-    startDate: '',
-    baseSalary: ''
-  });
-
-  // HR Filters State
-  const [hrSearch, setHrSearch] = useState('');
-  const [hrDept, setHrDept] = useState('');
-  const [hrRole, setHrRole] = useState('');
-  const [hrContractStatus, setHrContractStatus] = useState('');
-
-  // Helper to calculate contract status relative to simulated current date 2026-07-02
-  const getContractStatus = (expiryDate) => {
-    if (expiryDate === 'Vô thời hạn' || !expiryDate) {
-      return { label: 'Vô thời hạn', class: 'text-slate-400 bg-slate-800/40 border border-slate-700/50', key: 'indefinite' };
-    }
-    
-    const today = new Date('2026-07-02');
-    const expiry = new Date(expiryDate);
-    const diffTime = expiry - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 0) {
-      return { label: `Hết hạn (${formatDate(expiryDate)})`, class: 'text-rose-400 bg-rose-500/10 border border-rose-500/20', key: 'expired' };
-    } else if (diffDays <= 60) {
-      return { label: `Sắp hết hạn (${formatDate(expiryDate)})`, class: 'text-amber-400 bg-amber-500/10 border border-amber-500/20 animate-pulse', key: 'near_expiry' };
+    setEditingUserId(null);
+    if (currentUser.role === 'HR') {
+      pushLog(\`HR cập nhật thành công nhân sự \${editingUser.fullName}: Phòng ban -> \${selectedDept || 'Chưa chọn'}, Chức vụ -> \${selectedPos || 'Chưa chọn'}\`, 'success');
     } else {
-      return { label: formatDate(expiryDate), class: 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20', key: 'active' };
+      pushLog(\`Cập nhật thành công nhân sự \${editingUser.fullName}: Phòng ban -> \${selectedDept}, Vai trò -> \${selectedRole}\`, 'success');
     }
-  };
+    confetti({ particleCount: 50, spread: 40 });
+  };`;
 
-  // Filtered users for HR Table
-  const filteredHRUsers = allUsers.filter(user => {
-    const q = hrSearch.toLowerCase();
-    const matchSearch = !hrSearch ||
-      user.fullName.toLowerCase().includes(q) ||
-      user.employeeId.toLowerCase().includes(q);
-    const matchDept = !hrDept || user.department === hrDept;
-    const matchRole = !hrRole || user.role === hrRole;
-    
-    let matchContract = true;
-    if (hrContractStatus) {
-      const status = getContractStatus(user.contractExpiry);
-      if (hrContractStatus === 'het_han' && status.key !== 'expired') matchContract = false;
-      if (hrContractStatus === 'sap_het_han' && status.key !== 'near_expiry') matchContract = false;
-      if (hrContractStatus === 'con_han' && (status.key !== 'active' && status.key !== 'indefinite')) matchContract = false;
-    }
-    
-    return matchSearch && matchDept && matchRole && matchContract;
-  });
-
-  const handleSaveTransfer = () => {
+const newHandlersStr = `  const handleSaveTransfer = () => {
     setErrorMsg('');
     const getRoleLevel = (r) => {
       if (r === 'Admin') return 3;
@@ -106,25 +98,25 @@ export default function HR() {
     // 1. HR cannot edit Admin accounts
     if (currentUser.role === 'HR' && transferringUser.role === 'Admin') {
       setErrorMsg('Thẩm quyền thất bại: Nhân sự (HR) không được phép thay đổi thông tin hay vai trò của Admin.');
-      pushLog(`HR ${currentUser.fullName} cố gắng chỉnh sửa tài khoản Admin ${transferringUser.fullName} bị chặn.`, 'error');
+      pushLog(\`HR \${currentUser.fullName} cố gắng chỉnh sửa tài khoản Admin \${transferringUser.fullName} bị chặn.\`, 'error');
       return;
     }
 
     // 2. HR cannot assign Admin role to others
     if (currentUser.role === 'HR' && transferRole === 'Admin') {
       setErrorMsg('Thẩm quyền thất bại: Nhân sự (HR) không có quyền cấp vai trò Quản trị viên (Admin).');
-      pushLog(`HR ${currentUser.fullName} cố gắng phân bổ vai trò Admin cho ${transferringUser.fullName} bị chặn.`, 'error');
+      pushLog(\`HR \${currentUser.fullName} cố gắng phân bổ vai trò Admin cho \${transferringUser.fullName} bị chặn.\`, 'error');
       return;
     }
 
     // 3. HR cannot downgrade another HR or KeToan (level 2) to NhanVien (level 1)
     if (currentUser.role === 'HR' && getRoleLevel(transferringUser.role) === 2 && getRoleLevel(transferRole) < 2) {
       setErrorMsg('Thẩm quyền thất bại: Nhân sự (HR) không được phép hạ cấp vai trò của nhân sự quản lý ngang hàng (HR/Kế toán) xuống cấp Nhân viên.');
-      pushLog(`HR ${currentUser.fullName} cố gắng hạ cấp vai trò của ${transferringUser.fullName} (${transferringUser.role}) xuống ${transferRole} bị chặn.`, 'error');
+      pushLog(\`HR \${currentUser.fullName} cố gắng hạ cấp vai trò của \${transferringUser.fullName} (\${transferringUser.role}) xuống \${transferRole} bị chặn.\`, 'error');
       return;
     }
 
-    pushLog(`Đang cập nhật vai trò và phòng ban cho nhân sự mã: ${transferringUser.employeeId}...`);
+    pushLog(\`Đang cập nhật vai trò và phòng ban cho nhân sự mã: \${transferringUser.employeeId}...\`);
 
     setAllUsers(prev => prev.map(u => {
       if (u.employeeId === transferringUser.employeeId) {
@@ -140,188 +132,39 @@ export default function HR() {
 
     setTransferringUser(null);
     if (currentUser.role === 'HR') {
-      pushLog(`HR cập nhật thành công nhân sự ${transferringUser.fullName}: Phòng ban -> ${transferDept || 'Chưa chọn'}, Chức vụ -> ${transferPos || 'Chưa chọn'}`, 'success');
+      pushLog(\`HR cập nhật thành công nhân sự \${transferringUser.fullName}: Phòng ban -> \${transferDept || 'Chưa chọn'}, Chức vụ -> \${transferPos || 'Chưa chọn'}\`, 'success');
     } else {
-      pushLog(`Cập nhật thành công nhân sự ${transferringUser.fullName}: Phòng ban -> ${transferDept}, Vai trò -> ${transferRole}`, 'success');
+      pushLog(\`Cập nhật thành công nhân sự \${transferringUser.fullName}: Phòng ban -> \${transferDept}, Vai trò -> \${transferRole}\`, 'success');
     }
     confetti({ particleCount: 50, spread: 40 });
-  };
+  };`;
 
-  const handleApproveProfile = (user) => {
-    // Approve incomplete user profile details (completed via update modal)
-    pushLog(`Phê duyệt xác nhận thông tin hồ sơ của nhân sự: ${user.fullName} (${user.employeeId}).`);
-    
-    setAllUsers(prev => prev.map(u => {
-      if (u.employeeId === user.employeeId) {
-        return { ...u, isProfileComplete: true };
-      }
-      return u;
-    }));
+content = content.replace(handlersPattern, newHandlersStr);
 
-    // Trigger mock email credential dispatch (no plain-text password)
-    pushLog(`[Bảo mật] Tài khoản ${user.fullName} đã được kích hoạt. Đã gửi email chứa: Mã NV (${user.employeeId}), Họ tên, Email đăng ký và Mật khẩu tạm thời được mã hóa bảo mật đến hòm thư nhân viên.`, 'success');
-    
-    confetti({ particleCount: 70, spread: 50 });
-  };
-
-  const handleSaveProfileByHR = () => {
-    if (!hrEditForm.fullName.trim() || !hrEditForm.email.trim()) {
-      setErrorMsg('Vui lòng điền đầy đủ Họ và tên và Email.');
-      return;
-    }
-
-    if (hrEditForm.phone && !validateVietnamesePhone(hrEditForm.phone)) {
-      setErrorMsg('Số điện thoại không đúng định dạng Việt Nam (phải gồm 10 chữ số bắt đầu bằng 03, 05, 07, 08, 09).');
-      return;
-    }
-
-    setAllUsers(prev => prev.map(u => {
-      if (u.employeeId === selectedUserForDetails.employeeId) {
-        const updated = {
-          ...u,
-          fullName: hrEditForm.fullName.trim(),
+// 4. Replace handleSaveProfileByHR mapping
+const saveProfileMapping = `          fullName: hrEditForm.fullName.trim(),
           email: hrEditForm.email.trim(),
           phone: hrEditForm.phone.trim(),
           cccd: hrEditForm.cccd.trim(),
           dob: hrEditForm.dob,
           gender: hrEditForm.gender,
           address: hrEditForm.address.trim(),
-          startDate: hrEditForm.startDate,
-          baseSalary: Number(hrEditForm.baseSalary) || 0
-        };
-        // Update details modal state immediately
-        setSelectedUserForDetails(updated);
-        return updated;
-      }
-      return u;
-    }));
+          startDate: hrEditForm.startDate`;
 
-    setIsEditingProfileByHR(false);
-    setErrorMsg('');
-    pushLog(`HR đã cập nhật thông tin chi tiết nhân sự ${selectedUserForDetails.fullName} (${selectedUserForDetails.employeeId}) thành công.`, 'success');
-    confetti({ particleCount: 30, spread: 25 });
-  };
+const newSaveProfileMapping = `          fullName: hrEditForm.fullName.trim(),
+          email: hrEditForm.email.trim(),
+          phone: hrEditForm.phone.trim(),
+          cccd: hrEditForm.cccd.trim(),
+          dob: hrEditForm.dob,
+          gender: hrEditForm.gender,
+          address: hrEditForm.address.trim(),
+          startDate: hrEditForm.startDate,\n          baseSalary: Number(hrEditForm.baseSalary) || 0`;
 
-  return (
-    <div className="space-y-6">
-      
-      {/* Overview stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-slate-900/30 border border-slate-855 rounded-3xl p-6 shadow-xl">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-teal-500/10 rounded-2xl text-teal-400">
-              <Users className="w-6 h-6" />
-            </div>
-            <div>
-              <span className="block text-xs font-semibold text-slate-500">Tổng nhân viên</span>
-              <span className="text-2xl font-bold text-slate-100 tracking-tight mt-0.5">{allUsers.length}</span>
-            </div>
-          </div>
-        </div>
+content = content.replace(saveProfileMapping, newSaveProfileMapping);
 
-        <div className="bg-slate-900/30 border border-slate-855 rounded-3xl p-6 shadow-xl">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-amber-500/10 rounded-2xl text-amber-400">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
-            <div>
-              <span className="block text-xs font-semibold text-slate-500">Chờ duyệt hồ sơ</span>
-              <span className="text-2xl font-bold text-slate-100 tracking-tight mt-0.5">
-                {allUsers.filter(u => !u.isProfileComplete).length}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-900/30 border border-slate-855 rounded-3xl p-6 shadow-xl">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-purple-500/10 rounded-2xl text-purple-400">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <span className="block text-xs font-semibold text-slate-500">Vai trò quản trị (HR/Admin)</span>
-              <span className="text-2xl font-bold text-slate-100 tracking-tight mt-0.5">
-                {allUsers.filter(u => u.role === 'HR' || u.role === 'Admin').length}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-      {/* Main HR Management Table */}
-      <div className="bg-slate-900/30 border border-slate-855 rounded-3xl overflow-hidden shadow-xl">
-        <div className="px-6 py-5 border-b border-slate-800/80 bg-slate-950/20">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h3 className="font-bold text-slate-200">Danh sách & Phân quyền Nhân sự</h3>
-              <p className="text-slate-500 text-xs mt-0.5">Quản lý chức vụ, phòng ban, phân quyền và theo dõi thời hạn hợp đồng lao động.</p>
-            </div>
-            <span className="text-xs text-slate-500 shrink-0">{filteredHRUsers.length} / {allUsers.length} nhân viên</span>
-          </div>
-          {/* Filters Bar */}
-          <div className="mt-3.5 flex flex-wrap gap-2.5">
-            <div className="relative flex-1 min-w-[160px] max-w-xs">
-              <input
-                type="text"
-                placeholder="Tìm tên / mã NV..."
-                value={hrSearch}
-                onChange={(e) => setHrSearch(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-3 pr-8 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
-              />
-              {hrSearch && <button onClick={() => setHrSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs">✕</button>}
-            </div>
-            <select value={hrDept} onChange={(e) => setHrDept(e.target.value)}
-              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500">
-              <option value="">Tất cả phòng ban</option>
-              {departments.map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-            <select value={hrRole} onChange={(e) => setHrRole(e.target.value)}
-              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500">
-              <option value="">Tất cả vai trò</option>
-              <option value="NhanVien">Nhân viên</option>
-              <option value="KeToan">Kế toán</option>
-              <option value="HR">Nhân sự (HR)</option>
-              <option value="Admin">Admin</option>
-            </select>
-            <select value={hrContractStatus} onChange={(e) => setHrContractStatus(e.target.value)}
-              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500">
-              <option value="">Tất cả thời hạn HĐ</option>
-              <option value="con_han">Còn thời hạn</option>
-              <option value="sap_het_han">Sắp hết hạn (≤ 60 ngày)</option>
-              <option value="het_han">Đã hết hạn</option>
-            </select>
-            {(hrSearch || hrDept || hrRole || hrContractStatus) && (
-              <button onClick={() => { setHrSearch(''); setHrDept(''); setHrRole(''); setHrContractStatus(''); }}
-                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-xl text-xs font-semibold transition border border-slate-750">
-                ↺ Xóa bộ lọc
-              </button>
-            )}
-          </div>
-        </div>
-
-        {errorMsg && (
-          <div className="m-6 bg-rose-500/10 border border-rose-500/20 text-rose-400 p-3.5 rounded-xl text-xs flex gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
-
-        <div className="overflow-auto min-h-[300px] max-h-[500px]">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="sticky top-0 z-10 bg-slate-900">
-              <tr className="bg-slate-900 text-slate-400 font-semibold border-b border-slate-800">
-                <th className="px-6 py-4">Nhân viên</th>
-                <th className="px-6 py-4">Phòng ban</th>
-                <th className="px-6 py-4">Chức vụ (Position)</th>
-                <th className="px-6 py-4">Vai trò (Role)</th>
-                <th className="px-6 py-4">Liên hệ (SĐT / Email)</th>
-                <th className="px-6 py-4 text-center">Trạng thái hồ sơ</th>
-                <th className="px-6 py-4 text-center">Thời hạn HĐ</th>
-                <th className="px-6 py-4 text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-850/80 text-slate-300">
+// 5. Replace table row body within map
+const tbodyRegex = /<tbody className="divide-y divide-slate-850\/80 text-slate-300">([\s\S]*?)<\/tbody>/;
+const newTbody = `<tbody className="divide-y divide-slate-850/80 text-slate-300">
               {filteredHRUsers.length === 0 ? (
                 <tr><td colSpan="8" className="px-6 py-10 text-center text-slate-500 italic">Không tìm thấy nhân sự phù hợp.</td></tr>
               ) : filteredHRUsers.map((user) => (
@@ -350,12 +193,12 @@ export default function HR() {
                   </td>
 
                   <td className="px-6 py-4">
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                    <span className={\`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold \${
                       user.role === 'Admin' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
                       user.role === 'HR' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
                       user.role === 'KeToan' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
                       'bg-slate-800 text-slate-400'
-                    }`}>
+                    }\`}>
                       {user.role}
                     </span>
                   </td>
@@ -381,7 +224,7 @@ export default function HR() {
 
                   {/* Contract Expiry Status */}
                   <td className="px-6 py-4 text-center">
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${getContractStatus(user.contractExpiry).class}`}>
+                    <span className={\`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold \${getContractStatus(user.contractExpiry).class}\`}>
                       {getContractStatus(user.contractExpiry).label}
                     </span>
                   </td>
@@ -425,12 +268,13 @@ export default function HR() {
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </tbody>`;
+content = content.replace(tbodyRegex, newTbody);
 
-      {/* Details & Contract Renewal Modal */}
+// 6. Replace details modal from the comment to the end of the file
+const cleanModalRegex = /\{\/\* Details \& Contract Renewal Modal \*\/\}[\s\S]*$/;
+
+const newModalsBlock = `{/* Details & Contract Renewal Modal */}
       {selectedUserForDetails && createPortal(
         <div className="fixed inset-0 bg-slate-955/65 backdrop-blur-[4px] flex items-center justify-center z-[9998] p-4 animate-in fade-in duration-200">
           <div className="bg-slate-900 border border-slate-855 rounded-3xl shadow-2xl p-7 max-w-4xl w-full relative animate-in zoom-in-95 duration-200">
@@ -589,7 +433,7 @@ export default function HR() {
                 </div>
                 <div className="col-span-2">
                   <span className="text-slate-500 block mb-0.5">Thời hạn hợp đồng hiện tại</span>
-                  <span className={`inline-block px-2.5 py-0.5 rounded-full font-bold mt-1 text-[11px] ${getContractStatus(selectedUserForDetails.contractExpiry).class}`}>
+                  <span className={\`inline-block px-2.5 py-0.5 rounded-full font-bold mt-1 text-[11px] \${getContractStatus(selectedUserForDetails.contractExpiry).class}\`}>
                     {getContractStatus(selectedUserForDetails.contractExpiry).label}
                   </span>
                 </div>
@@ -604,7 +448,7 @@ export default function HR() {
                       </span>
                       <button
                         onClick={() => {
-                          pushLog(`HR tải xuống hợp đồng của ${selectedUserForDetails.fullName}`, 'success');
+                          pushLog(\`HR tải xuống hợp đồng của \${selectedUserForDetails.fullName}\`, 'success');
                         }}
                         className="text-[10px] text-teal-450 hover:underline font-bold"
                       >
@@ -685,12 +529,12 @@ export default function HR() {
                               contractExpiry: newExpiryDate,
                               contractSignDate: '2026-07-02',
                               contractType: u.contractType === 'Thử việc' ? '1 năm' : u.contractType || '1 năm',
-                              contractFile: uploadedContractName || u.contractFile || `HopDong_LaoDong_${u.fullName.replace(/\s+/g, '_')}_GiaHan.pdf`
+                              contractFile: uploadedContractName || u.contractFile || \`HopDong_LaoDong_\${u.fullName.replace(/\\s+/g, '_')}_GiaHan.pdf\`
                             };
                           }
                           return u;
                         }));
-                        pushLog(`Gia hạn hợp đồng nhân sự ${selectedUserForDetails.fullName} thành công đến ${newExpiryDate}.`, 'success');
+                        pushLog(\`Gia hạn hợp đồng nhân sự \${selectedUserForDetails.fullName} thành công đến \${newExpiryDate}.\`, 'success');
                         setSelectedUserForDetails(null);
                         setIsRenewMode(false);
                         confetti({ particleCount: 50, spread: 35 });
@@ -759,7 +603,7 @@ export default function HR() {
                             }
                             return u;
                           }));
-                          pushLog(`Đã tải lên tệp hợp đồng "${file.name}" cho nhân sự ${selectedUserForDetails.fullName}`, 'success');
+                          pushLog(\`Đã tải lên tệp hợp đồng "\${file.name}" cho nhân sự \${selectedUserForDetails.fullName}\`, 'success');
                           setSelectedUserForDetails(prev => ({ ...prev, contractFile: file.name }));
                           confetti({ particleCount: 20, spread: 20 });
                         }
@@ -878,4 +722,9 @@ export default function HR() {
       )}
     </div>
   );
-}
+}`;
+
+content = content.replace(cleanModalRegex, newModalsBlock);
+
+fs.writeFileSync(targetPath, content, 'utf8');
+console.log('Update successful!');

@@ -138,6 +138,44 @@ const initialHistory = [
   { id: 520, employeeId: 'NV005', date: '2026-06-27', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:55:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
   { id: 521, employeeId: 'NV005', date: '2026-06-28', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:50:00', clockOut: '17:30:00', actualHours: 8.6, status: 'Hợp lệ' },
   { id: 522, employeeId: 'NV005', date: '2026-06-30', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:55:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
+
+  // ============================================================
+  // DỮ LIỆU THÁNG 7/2026 (ĐỂ KIỂM THỬ THỐNG KÊ & BÁO CÁO)
+  // ============================================================
+  { id: 7001, employeeId: 'NV001', date: '2026-07-01', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:50:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
+  { id: 7002, employeeId: 'NV001', date: '2026-07-02', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:55:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
+  { id: 7003, employeeId: 'NV001', date: '2026-07-03', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '08:15:00', clockOut: '17:30:00', actualHours: 8.0, status: 'Đi muộn' },
+  { id: 7004, employeeId: 'NV001', date: '2026-07-06', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:52:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
+  { id: 7005, employeeId: 'NV001', date: '2026-07-07', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:58:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
+  { id: 7006, employeeId: 'NV001', date: '2026-07-08', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '-', clockOut: '-', actualHours: 0, status: 'Nghỉ phép' },
+
+  { id: 7007, employeeId: 'NV002', date: '2026-07-01', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '08:05:00', clockOut: '17:30:00', actualHours: 8.3, status: 'Hợp lệ' },
+  { id: 7008, employeeId: 'NV002', date: '2026-07-02', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '08:20:00', clockOut: '17:30:00', actualHours: 8.0, status: 'Đi muộn' },
+  { id: 7009, employeeId: 'NV002', date: '2026-07-03', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:50:00', clockOut: '17:30:00', actualHours: 8.6, status: 'Hợp lệ' },
+  { id: 7010, employeeId: 'NV002', date: '2026-07-06', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:55:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
+  { id: 7011, employeeId: 'NV002', date: '2026-07-07', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:48:00', clockOut: '17:30:00', actualHours: 8.6, status: 'Hợp lệ' },
+  { id: 7012, employeeId: 'NV002', date: '2026-07-08', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:54:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
+
+  { id: 7013, employeeId: 'NV003', date: '2026-07-01', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:55:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
+  { id: 7014, employeeId: 'NV003', date: '2026-07-02', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:58:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
+  { id: 7015, employeeId: 'NV003', date: '2026-07-03', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:52:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
+  { id: 7016, employeeId: 'NV003', date: '2026-07-06', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:50:00', clockOut: '17:30:00', actualHours: 8.6, status: 'Hợp lệ' },
+  { id: 7017, employeeId: 'NV003', date: '2026-07-07', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '08:30:00', clockOut: '17:30:00', actualHours: 7.8, status: 'Đi muộn' },
+  { id: 7018, employeeId: 'NV003', date: '2026-07-08', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:55:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
+
+  { id: 7019, employeeId: 'NV000', date: '2026-07-01', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:45:00', clockOut: '17:30:00', actualHours: 8.6, status: 'Hợp lệ' },
+  { id: 7020, employeeId: 'NV000', date: '2026-07-02', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:48:00', clockOut: '17:30:00', actualHours: 8.6, status: 'Hợp lệ' },
+  { id: 7021, employeeId: 'NV000', date: '2026-07-03', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:50:00', clockOut: '17:30:00', actualHours: 8.6, status: 'Hợp lệ' },
+  { id: 7022, employeeId: 'NV000', date: '2026-07-06', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:55:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
+  { id: 7023, employeeId: 'NV000', date: '2026-07-07', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:52:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
+  { id: 7024, employeeId: 'NV000', date: '2026-07-08', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:55:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
+
+  { id: 7025, employeeId: 'NV005', date: '2026-07-01', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:58:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
+  { id: 7026, employeeId: 'NV005', date: '2026-07-02', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '-', clockOut: '-', actualHours: 0, status: 'Vắng mặt' },
+  { id: 7027, employeeId: 'NV005', date: '2026-07-03', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:50:00', clockOut: '17:30:00', actualHours: 8.6, status: 'Hợp lệ' },
+  { id: 7028, employeeId: 'NV005', date: '2026-07-06', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '08:12:00', clockOut: '17:30:00', actualHours: 8.2, status: 'Đi muộn' },
+  { id: 7029, employeeId: 'NV005', date: '2026-07-07', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '07:55:00', clockOut: '17:30:00', actualHours: 8.5, status: 'Hợp lệ' },
+  { id: 7030, employeeId: 'NV005', date: '2026-07-08', shift: 'Ca hành chính (08:00 - 17:30)', clockIn: '-', clockOut: '-', actualHours: 0, status: 'Nghỉ không phép' },
 ];
 
 const initialRequests = [
@@ -167,7 +205,10 @@ const presetUsers = {
     gender: 'Nam',
     dob: '1998-05-20',
     isProfileComplete: true,
-    contractExpiry: '2027-01-15'
+    contractExpiry: '2027-01-15',
+    contractType: '2 năm',
+    contractSignDate: '2025-01-15',
+    contractFile: 'HĐLĐ_Nguyễn_Văn_A.pdf'
   },
   KeToan: {
     fullName: 'Trần Thị B',
@@ -183,7 +224,10 @@ const presetUsers = {
     gender: 'Nữ',
     dob: '1996-08-15',
     isProfileComplete: true,
-    contractExpiry: '2026-08-31'
+    contractExpiry: '2026-07-20', // Expiring in 18 days relative to 2026-07-02
+    contractType: 'Thử việc',
+    contractSignDate: '2026-05-20',
+    contractFile: 'HĐLĐ_Trần_Thị_B.pdf'
   },
   HR: {
     fullName: 'Lê Văn C',
@@ -199,7 +243,10 @@ const presetUsers = {
     gender: 'Nam',
     dob: '1995-12-05',
     isProfileComplete: true,
-    contractExpiry: '2026-11-01'
+    contractExpiry: '2026-11-01',
+    contractType: '2 năm',
+    contractSignDate: '2024-11-01',
+    contractFile: 'HĐLĐ_Lê_Văn_C.pdf'
   },
   Admin: {
     fullName: 'Phạm Văn D (System Admin)',
@@ -215,7 +262,10 @@ const presetUsers = {
     gender: 'Nam',
     dob: '1990-01-01',
     isProfileComplete: true,
-    contractExpiry: 'Vô thời hạn'
+    contractExpiry: 'Vô thời hạn',
+    contractType: 'Không thời hạn',
+    contractSignDate: '2024-01-01',
+    contractFile: ''
   }
 };
 
@@ -251,7 +301,10 @@ export const AppProvider = ({ children }) => {
       gender: '',
       dob: '',
       isProfileComplete: false,
-      contractExpiry: '2026-09-01'
+      contractExpiry: '2026-09-01',
+      contractType: 'Thử việc',
+      contractSignDate: '2026-06-01',
+      contractFile: ''
     },
     {
       fullName: 'Hoàng Thị E',
@@ -267,7 +320,10 @@ export const AppProvider = ({ children }) => {
       gender: 'Nữ',
       dob: '1999-03-10',
       isProfileComplete: true,
-      contractExpiry: '2026-08-01'
+      contractExpiry: '2026-08-01',
+      contractType: '1 năm',
+      contractSignDate: '2025-08-01',
+      contractFile: 'HĐLĐ_Hoàng_Thị_E.pdf'
     }
   ]);
 
@@ -281,6 +337,8 @@ export const AppProvider = ({ children }) => {
   const [allowedWifiIp, setAllowedWifiIp] = useState('192.168.1.100');
   const [allowedDistance, setAllowedDistance] = useState(100);
   const [gracePeriod, setGracePeriod] = useState(10);
+
+
 
   // Theme configuration (light/dark)
   const [theme, setTheme] = useState(() => {
@@ -473,6 +531,9 @@ export const AppProvider = ({ children }) => {
       return true;
     }
     if (path === '/admin' && role === 'Admin') {
+      return true;
+    }
+    if (path === '/analytics' && (role === 'HR' || role === 'KeToan' || role === 'Admin')) {
       return true;
     }
     return false;

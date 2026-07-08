@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { useApp } from '../context/AppContext';
 import { Clock, CheckCircle2, AlertTriangle, Play, Square, Award, Calendar, AlertCircle, Compass } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -460,161 +461,183 @@ export default function Dashboard() {
             <h3 className="font-bold text-slate-200">Thông tin Hồ sơ Cá nhân</h3>
             <p className="text-slate-500 text-xs mt-0.5">Xem và tự điều chỉnh thông tin liên hệ, lý lịch cá nhân của bạn.</p>
           </div>
-          {!isEditingProfile ? (
-            <button
-              onClick={() => {
-                setIsEditingProfile(true);
-                setProfileForm({
-                  fullName: currentUser.fullName,
-                  email: currentUser.email,
-                  phone: currentUser.phone || '',
-                  cccd: currentUser.cccd || '',
-                  dob: currentUser.dob || '',
-                  gender: currentUser.gender || 'Nam',
-                  address: currentUser.address || ''
-                });
-              }}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700/80 transition"
-            >
-              📝 Chỉnh sửa thông tin
-            </button>
-          ) : (
-            <div className="flex gap-2">
+          <button
+            onClick={() => {
+              setIsEditingProfile(true);
+              setProfileForm({
+                fullName: currentUser.fullName,
+                email: currentUser.email,
+                phone: currentUser.phone || '',
+                cccd: currentUser.cccd || '',
+                dob: currentUser.dob || '',
+                gender: currentUser.gender || 'Nam',
+                address: currentUser.address || ''
+              });
+            }}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700/80 transition"
+          >
+            &#128221; Chỉnh sửa thông tin
+          </button>
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-xs">
+            <div>
+              <span className="text-slate-500 block mb-0.5">Họ và tên</span>
+              <span className="text-slate-200 font-semibold">{currentUser.fullName}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block mb-0.5">Địa chỉ Email</span>
+              <span className="text-slate-200 font-semibold text-wrap break-all">{currentUser.email}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block mb-0.5">Số điện thoại</span>
+              <span className="text-slate-200 font-semibold">{currentUser.phone || '—'}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block mb-0.5">Số CCCD / Hộ chiếu</span>
+              <span className="text-slate-200 font-semibold">{currentUser.cccd || '—'}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block mb-0.5">Ngày sinh</span>
+              <span className="text-slate-200 font-semibold">{formatDate(currentUser.dob) || '—'}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block mb-0.5">Giới tính</span>
+              <span className="text-slate-200 font-semibold">{currentUser.gender || '—'}</span>
+            </div>
+            <div className="sm:col-span-2">
+              <span className="text-slate-500 block mb-0.5">Địa chỉ thường trú</span>
+              <span className="text-slate-200 font-semibold">{currentUser.address || '—'}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Phòng ban</span>
+              <span className="text-slate-400 font-semibold">{currentUser.department || 'Chưa phân bổ'}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Chức vụ</span>
+              <span className="text-slate-400 font-semibold">{currentUser.position || 'Nhân sự chính thức'}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Quyền hạn hệ thống</span>
+              <span className="text-teal-400 font-bold uppercase">{currentUser.role}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Thời hạn hợp đồng</span>
+              <span className="text-emerald-400 font-bold">{formatDate(currentUser.contractExpiry) || 'Vô thời hạn'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Profile Edit Modal via Portal */}
+      {isEditingProfile && ReactDOM.createPortal(
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+        >
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800/80">
+              <div>
+                <h3 className="font-bold text-slate-100 text-base">&#128221; Chỉnh sửa Hồ sơ Cá nhân</h3>
+                <p className="text-slate-500 text-xs mt-0.5">Cập nhật thông tin liên hệ và lý lịch của bạn.</p>
+              </div>
               <button
                 onClick={() => setIsEditingProfile(false)}
-                className="px-3.5 py-2 bg-slate-950 hover:bg-slate-850 text-slate-400 rounded-xl text-xs font-semibold transition"
+                className="text-slate-500 hover:text-slate-300 transition text-xl font-bold px-2"
               >
-                Hủy
+                &#10005;
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Họ và tên *</label>
+                  <input
+                    type="text"
+                    value={profileForm.fullName}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, fullName: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Địa chỉ Email *</label>
+                  <input
+                    type="email"
+                    value={profileForm.email}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Số điện thoại</label>
+                  <input
+                    type="text"
+                    value={profileForm.phone}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                    placeholder="09xxxxxxxx"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Số CCCD / Hộ chiếu</label>
+                  <input
+                    type="text"
+                    value={profileForm.cccd}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, cccd: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Ngày sinh</label>
+                  <input
+                    type="date"
+                    value={profileForm.dob}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, dob: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Giới tính</label>
+                  <select
+                    value={profileForm.gender}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, gender: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  >
+                    <option value="Nam">Nam</option>
+                    <option value="N&#432;">N&#432;</option>
+                    <option value="Kh&#225;c">Kh&#225;c</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Địa chỉ thường trú</label>
+                  <input
+                    type="text"
+                    value={profileForm.address}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, address: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                    placeholder="S&#7889; nh&#224;, &#273;&#432;&#7901;ng, ph&#432;&#7901;ng/x&#227;, qu&#7853;n/huy&#7879;n, t&#7881;nh/th&#224;nh ph&#7889;"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-800/80">
+              <button
+                onClick={() => setIsEditingProfile(false)}
+                className="px-5 py-2.5 bg-slate-950 hover:bg-slate-850 text-slate-400 rounded-xl text-xs font-semibold transition border border-slate-800"
+              >
+                H&#7911;y
               </button>
               <button
                 onClick={handleSaveProfile}
-                className="px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 text-xs font-bold rounded-xl transition"
+                className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 text-xs font-bold rounded-xl transition"
               >
-                Lưu thay đổi
+                L&#432;u thay &#273;&#7893;i
               </button>
             </div>
-          )}
-        </div>
-        <div className="p-6">
-          {!isEditingProfile ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-xs">
-              <div>
-                <span className="text-slate-500 block mb-0.5">Họ và tên</span>
-                <span className="text-slate-200 font-semibold">{currentUser.fullName}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block mb-0.5">Địa chỉ Email</span>
-                <span className="text-slate-200 font-semibold text-wrap break-all">{currentUser.email}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block mb-0.5">Số điện thoại</span>
-                <span className="text-slate-200 font-semibold">{currentUser.phone || '—'}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block mb-0.5">Số CCCD / Hộ chiếu</span>
-                <span className="text-slate-200 font-semibold">{currentUser.cccd || '—'}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block mb-0.5">Ngày sinh</span>
-                <span className="text-slate-200 font-semibold">{formatDate(currentUser.dob) || '—'}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block mb-0.5">Giới tính</span>
-                <span className="text-slate-200 font-semibold">{currentUser.gender || '—'}</span>
-              </div>
-              <div className="sm:col-span-2">
-                <span className="text-slate-500 block mb-0.5">Địa chỉ thường trú</span>
-                <span className="text-slate-200 font-semibold">{currentUser.address || '—'}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Phòng ban</span>
-                <span className="text-slate-400 font-semibold">{currentUser.department || 'Chưa phân bổ'}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Chức vụ</span>
-                <span className="text-slate-400 font-semibold">{currentUser.position || 'Nhân sự chính thức'}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Quyền hạn hệ thống</span>
-                <span className="text-teal-400 font-bold uppercase">{currentUser.role}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Thời hạn hợp đồng</span>
-                <span className="text-emerald-400 font-bold">{formatDate(currentUser.contractExpiry) || 'Vô thời hạn'}</span>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400">Họ và tên *</label>
-                <input
-                  type="text"
-                  value={profileForm.fullName}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, fullName: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400">Địa chỉ Email *</label>
-                <input
-                  type="email"
-                  value={profileForm.email}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400">Số điện thoại</label>
-                <input
-                  type="text"
-                  value={profileForm.phone}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, phone: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400">Số CCCD / Hộ chiếu</label>
-                <input
-                  type="text"
-                  value={profileForm.cccd}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, cccd: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400">Ngày sinh</label>
-                <input
-                  type="date"
-                  value={profileForm.dob}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, dob: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400">Giới tính</label>
-                <select
-                  value={profileForm.gender}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, gender: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
-                >
-                  <option value="Nam">Nam</option>
-                  <option value="Nữ">Nữ</option>
-                  <option value="Khác">Khác</option>
-                </select>
-              </div>
-              <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400">Địa chỉ thường trú</label>
-                <input
-                  type="text"
-                  value={profileForm.address}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, address: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
     </div>
   );

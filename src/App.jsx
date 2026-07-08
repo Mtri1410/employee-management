@@ -7,6 +7,7 @@ import Requests from './pages/Requests';
 import HR from './pages/HR';
 import Accounting from './pages/Accounting';
 import Admin from './pages/Admin';
+import Analytics from './pages/Analytics';
 
 import MainLayout from './components/MainLayout';
 import MandatoryUpdateModal from './components/MandatoryUpdateModal';
@@ -38,6 +39,8 @@ function AppContent() {
         return <Accounting />;
       case '/admin':
         return <Admin />;
+      case '/analytics':
+        return <Analytics />;
       default:
         return <Dashboard />;
     }

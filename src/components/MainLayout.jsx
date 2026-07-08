@@ -16,7 +16,8 @@ import {
   RotateCcw,
   AlertTriangle,
   Sun,
-  Moon
+  Moon,
+  BarChart2
 } from 'lucide-react';
 
 export default function MainLayout({ children }) {
@@ -33,7 +34,8 @@ export default function MainLayout({ children }) {
     undoToast,
     setUndoToast,
     theme,
-    setTheme
+    setTheme,
+    allUsers
   } = useApp();
 
   const [showNotifications, setShowNotifications] = useState(false);
@@ -63,8 +65,22 @@ export default function MainLayout({ children }) {
     { name: 'Quản lý Đơn từ', path: '/requests', icon: FileText, roles: ['NhanVien', 'KeToan', 'HR', 'Admin'] },
     { name: 'Phân hệ Nhân Sự', path: '/hr', icon: Users, roles: ['HR', 'KeToan', 'Admin'] },
     { name: 'Phân hệ Kế Toán', path: '/accounting', icon: BadgeCent, roles: ['KeToan', 'HR', 'Admin'] },
+    { name: 'Thống kê & Báo cáo', path: '/analytics', icon: BarChart2, roles: ['HR', 'KeToan', 'Admin'] },
     { name: 'Quản Trị Hệ Thống', path: '/admin', icon: Settings, roles: ['Admin'] },
   ];
+
+  // Calculate contract expiry count for warning badge (within 30 days of 2026-07-02)
+  const getHrExpiringCount = () => {
+    const today = new Date('2026-07-02');
+    return allUsers.filter(u => {
+      if (u.contractExpiry === 'Vô thời hạn' || !u.contractExpiry) return false;
+      const expiry = new Date(u.contractExpiry);
+      const diffTime = expiry - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays <= 30;
+    }).length;
+  };
+  const hrExpiringCount = getHrExpiringCount();
 
   // Filtering links based on user role (UI Level Truncation)
   const allowedMenuItems = menuItems.filter(item => item.roles.includes(currentUser.role));
@@ -116,7 +132,6 @@ export default function MainLayout({ children }) {
                 ✕
               </button>
             </div>
-
           {/* Navigation Links */}
           <nav className="p-4 space-y-1">
             {allowedMenuItems.map((item) => {
@@ -133,7 +148,12 @@ export default function MainLayout({ children }) {
                   }`}
                 >
                   <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-teal-400' : 'text-slate-400'}`} />
-                  {item.name}
+                  <span>{item.name}</span>
+                  {item.path === '/hr' && hrExpiringCount > 0 && (
+                    <span className="ml-auto w-5 h-5 bg-rose-500 rounded-full flex items-center justify-center text-[10px] font-black text-slate-100 animate-pulse">
+                      {hrExpiringCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -372,7 +392,12 @@ export default function MainLayout({ children }) {
                       }`}
                     >
                       <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-teal-400' : 'text-slate-400'}`} />
-                      {item.name}
+                      <span>{item.name}</span>
+                      {item.path === '/hr' && hrExpiringCount > 0 && (
+                        <span className="ml-auto w-5 h-5 bg-rose-500 rounded-full flex items-center justify-center text-[10px] font-black text-slate-100 animate-pulse">
+                          {hrExpiringCount}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
