@@ -81,7 +81,7 @@ export default function CustomDialog() {
 
           {/* Action Buttons */}
           <div className="w-full pt-4 flex gap-3 justify-center">
-            {modalDialog.type === 'confirm' ? (
+            {modalDialog.type === 'confirm' || modalDialog.onConfirm ? (
               <>
                 <button
                   type="button"
@@ -93,7 +93,11 @@ export default function CustomDialog() {
                 <button
                   type="button"
                   onClick={handleConfirm}
-                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 font-bold rounded-xl shadow-lg shadow-teal-500/15 transition text-xs"
+                  className={`flex-1 px-4 py-2.5 font-bold rounded-xl shadow-lg transition text-xs ${
+                    modalDialog.type === 'warning'
+                      ? 'bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-slate-950 shadow-rose-500/15'
+                      : 'bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 shadow-teal-500/15'
+                  }`}
                 >
                   Xác nhận
                 </button>

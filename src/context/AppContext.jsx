@@ -6,7 +6,7 @@ const AppContext = createContext();
 const syncChannel = new BroadcastChannel('genx_pks_hrm_sync');
 
 const initialDepartments = ['Hành chính', 'Nhân sự', 'Kế toán', 'Kỹ thuật', 'Kinh doanh'];
-const initialPositions = ['Trưởng phòng', 'Nhân viên chính thức', 'Nhân viên thử việc', 'Kế toán viên', 'Chuyên viên HR'];
+const initialPositions = ['Project Manager (PM)', 'Developer (DEV)', 'Quality Control (QC)', 'Business Analyst (BA)', 'Tester', 'Designer', 'Kế toán viên', 'Chuyên viên HR', 'Trưởng phòng'];
 
 const initialHistory = [
   // ============================================================
@@ -201,7 +201,7 @@ const presetUsers = {
     address: '123 Đường Láng, Hà Nội',
     startDate: '2025-01-15',
     department: 'Kỹ thuật',
-    position: 'Nhân viên chính thức',
+    position: 'Developer (DEV)',
     gender: 'Nam',
     dob: '1998-05-20',
     isProfileComplete: true,
@@ -288,26 +288,26 @@ export const AppProvider = ({ children }) => {
     { ...presetUsers.HR },
     { ...presetUsers.Admin },
     {
-      fullName: 'Hoàng Văn E (Thực tập sinh)',
+      fullName: 'Hoàng Văn E (Tester)',
       email: 'hve@genxpks.com',
       role: 'NhanVien',
       employeeId: 'NV004',
-      cccd: '',
-      phone: '',
-      address: '',
+      cccd: '012345678918',
+      phone: '0911111111',
+      address: 'Phố Nhổn, Hà Nội',
       startDate: '2026-06-01',
       department: 'Kỹ thuật',
-      position: 'Nhân viên thử việc',
-      gender: '',
-      dob: '',
-      isProfileComplete: false,
+      position: 'Tester',
+      gender: 'Nam',
+      dob: '2001-09-12',
+      isProfileComplete: true,
       contractExpiry: '2026-09-01',
       contractType: 'Thử việc',
       contractSignDate: '2026-06-01',
       contractFile: ''
     },
     {
-      fullName: 'Hoàng Thị E',
+      fullName: 'Hoàng Thị E (BA)',
       email: 'hte@genxpks.com',
       role: 'NhanVien',
       employeeId: 'NV005',
@@ -315,8 +315,8 @@ export const AppProvider = ({ children }) => {
       phone: '0912345678',
       address: '22 Trần Phú, Hà Nội',
       startDate: '2025-08-01',
-      department: 'Kinh doanh',
-      position: 'Nhân viên chính thức',
+      department: 'Kỹ thuật',
+      position: 'Business Analyst (BA)',
       gender: 'Nữ',
       dob: '1999-03-10',
       isProfileComplete: true,
@@ -324,8 +324,141 @@ export const AppProvider = ({ children }) => {
       contractType: '1 năm',
       contractSignDate: '2025-08-01',
       contractFile: 'HĐLĐ_Hoàng_Thị_E.pdf'
+    },
+    {
+      fullName: 'Phan Văn F (QC)',
+      email: 'pvf@genxpks.com',
+      role: 'NhanVien',
+      employeeId: 'NV006',
+      cccd: '012345678921',
+      phone: '0922222222',
+      address: 'Hồ Tùng Mậu, Hà Nội',
+      startDate: '2025-10-01',
+      department: 'Kỹ thuật',
+      position: 'Quality Control (QC)',
+      gender: 'Nam',
+      dob: '1997-11-20',
+      isProfileComplete: true,
+      contractExpiry: '2026-10-01',
+      contractType: '1 năm',
+      contractSignDate: '2025-10-01',
+      contractFile: ''
+    },
+    {
+      fullName: 'Đỗ Thị G (Designer)',
+      email: 'dtg@genxpks.com',
+      role: 'NhanVien',
+      employeeId: 'NV007',
+      cccd: '012345678922',
+      phone: '0933333333',
+      address: 'Đội Cấn, Hà Nội',
+      startDate: '2025-12-15',
+      department: 'Kỹ thuật',
+      position: 'Designer',
+      gender: 'Nữ',
+      dob: '2000-04-18',
+      isProfileComplete: true,
+      contractExpiry: '2026-12-15',
+      contractType: '1 năm',
+      contractSignDate: '2025-12-15',
+      contractFile: ''
     }
   ]);
+
+  // Department Managers Lookup
+  const [deptManagers, rawSetDeptManagers] = useState(() => {
+    const saved = localStorage.getItem('dept_managers');
+    return saved ? JSON.parse(saved) : {
+      'Hành chính': 'NV000',
+      'Nhân sự': 'NV003',
+      'Kế toán': 'NV002',
+      'Kỹ thuật': 'NV001',
+      'Kinh doanh': 'NV005'
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('dept_managers', JSON.stringify(deptManagers));
+  }, [deptManagers]);
+
+  // Groups / Teams list
+  const [teams, rawSetTeams] = useState(() => {
+    const saved = localStorage.getItem('company_teams');
+    return saved ? JSON.parse(saved) : [
+      { id: 't1', name: 'Nhóm Phát Triển Sản Phẩm', department: 'Kỹ thuật', leaderId: 'NV001', memberIds: ['NV001', 'NV004'] },
+      { id: 't2', name: 'Nhóm Kế Toán Thuế & Kiểm Toán', department: 'Kế toán', leaderId: 'NV002', memberIds: ['NV002'] }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('company_teams', JSON.stringify(teams));
+  }, [teams]);
+
+  // Projects list
+  const [projects, rawSetProjects] = useState(() => {
+    const saved = localStorage.getItem('company_projects');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const p1 = parsed.find(p => p.id === 'p1');
+      if (p1 && (!p1.memberIds || p1.memberIds.length < 3)) {
+        p1.memberIds = ['NV001', 'NV004', 'NV005', 'NV006', 'NV007'];
+        p1.progress = 50;
+        p1.tasks = [
+          { id: 't1_1', name: 'Nâng cấp cụm Kubernetes', assigneeId: 'NV001', status: 'Hoàn thành', deadline: '2026-06-30' },
+          { id: 't1_2', name: 'Phân tích yêu cầu hạ tầng Cloud', assigneeId: 'NV005', status: 'Hoàn thành', deadline: '2026-06-15' },
+          { id: 't1_3', name: 'Thiết lập pipeline CI/CD mới', assigneeId: 'NV004', status: 'Đang làm', deadline: '2026-07-25' },
+          { id: 't1_4', name: 'Viết kịch bản kiểm thử hiệu năng', assigneeId: 'NV006', status: 'Đang làm', deadline: '2026-07-30' },
+          { id: 't1_5', name: 'Thiết kế dashboard Grafana UI', assigneeId: 'NV007', status: 'Chờ làm', deadline: '2026-08-10' },
+          { id: 't1_6', name: 'Viết tài liệu hướng dẫn vận hành', assigneeId: 'NV001', status: 'Chờ làm', deadline: '2026-08-20' }
+        ];
+        localStorage.setItem('company_projects', JSON.stringify(parsed));
+      }
+      return parsed;
+    }
+    return [
+      { 
+        id: 'p1', 
+        name: 'Tối ưu hóa hạ tầng DevOps', 
+        department: 'Kỹ thuật', 
+        managerId: 'NV001', 
+        memberIds: ['NV001', 'NV004', 'NV005', 'NV006', 'NV007'], 
+        startDate: '2026-06-01', 
+        endDate: '2026-08-31', 
+        budget: 150000000, 
+        status: 'Đang thực hiện',
+        progress: 50,
+        tasks: [
+          { id: 't1_1', name: 'Nâng cấp cụm Kubernetes', assigneeId: 'NV001', status: 'Hoàn thành', deadline: '2026-06-30' },
+          { id: 't1_2', name: 'Phân tích yêu cầu hạ tầng Cloud', assigneeId: 'NV005', status: 'Hoàn thành', deadline: '2026-06-15' },
+          { id: 't1_3', name: 'Thiết lập pipeline CI/CD mới', assigneeId: 'NV004', status: 'Đang làm', deadline: '2026-07-25' },
+          { id: 't1_4', name: 'Viết kịch bản kiểm thử hiệu năng', assigneeId: 'NV006', status: 'Đang làm', deadline: '2026-07-30' },
+          { id: 't1_5', name: 'Thiết kế dashboard Grafana UI', assigneeId: 'NV007', status: 'Chờ làm', deadline: '2026-08-10' },
+          { id: 't1_6', name: 'Viết tài liệu hướng dẫn vận hành', assigneeId: 'NV001', status: 'Chờ làm', deadline: '2026-08-20' }
+        ]
+      },
+      { 
+        id: 'p2', 
+        name: 'Kiểm toán nội bộ & Quyết toán thuế 2025', 
+        department: 'Kế toán', 
+        managerId: 'NV002', 
+        memberIds: ['NV002', 'NV003'], 
+        startDate: '2026-05-15', 
+        endDate: '2026-07-15', 
+        budget: 80000000, 
+        status: 'Đang thực hiện',
+        progress: 85,
+        tasks: [
+          { id: 't2_1', name: 'Thu thập hóa đơn chứng từ Q4/2025', assigneeId: 'NV002', status: 'Hoàn thành', deadline: '2026-06-15' },
+          { id: 't2_2', name: 'Lập tờ khai thuế tài nguyên', assigneeId: 'NV002', status: 'Hoàn thành', deadline: '2026-06-20' },
+          { id: 't2_3', name: 'Đối chiếu với kiểm toán viên độc lập', assigneeId: 'NV003', status: 'Đang làm', deadline: '2026-07-12' }
+        ]
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('company_projects', JSON.stringify(projects));
+  }, [projects]);
 
   // Simulation states
   const [officeWifi, setOfficeWifi] = useState(true);
@@ -357,12 +490,23 @@ export const AppProvider = ({ children }) => {
   // Real time punch state for active user
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [currentShift, setCurrentShift] = useState('');
+  const [workMode, setWorkMode] = useState('Onsite');
   const [checkInTime, setCheckInTime] = useState(null);
   
   // Navigation / Page Routing Control
   const [currentPath, setCurrentPath] = useState('/dashboard');
 
   // Global Custom Dialog State
+  // Todos list
+  const [todos, rawSetTodos] = useState(() => {
+    const saved = localStorage.getItem('company_todos');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('company_todos', JSON.stringify(todos));
+  }, [todos]);
+
   const [modalDialog, setModalDialog] = useState({
     isOpen: false,
     title: '',
@@ -413,12 +557,48 @@ export const AppProvider = ({ children }) => {
       if (type === 'SYNC_REQUESTS') rawSetRequests(payload);
       if (type === 'SYNC_NOTIFICATIONS') rawSetNotifications(payload);
       if (type === 'SYNC_USERS') rawSetAllUsers(payload);
+      if (type === 'SYNC_DEPT_MANAGERS') rawSetDeptManagers(payload);
+      if (type === 'SYNC_TEAMS') rawSetTeams(payload);
+      if (type === 'SYNC_PROJECTS') rawSetProjects(payload);
+      if (type === 'SYNC_TODOS') rawSetTodos(payload);
     };
     syncChannel.addEventListener('message', handleSync);
     return () => {
       syncChannel.removeEventListener('message', handleSync);
     };
   }, []);
+
+  const updateDeptManagers = (val) => {
+    rawSetDeptManagers(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      syncChannel.postMessage({ type: 'SYNC_DEPT_MANAGERS', payload: next });
+      return next;
+    });
+  };
+
+  const updateTeams = (val) => {
+    rawSetTeams(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      syncChannel.postMessage({ type: 'SYNC_TEAMS', payload: next });
+      return next;
+    });
+  };
+
+  const updateProjects = (val) => {
+    rawSetProjects(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      syncChannel.postMessage({ type: 'SYNC_PROJECTS', payload: next });
+      return next;
+    });
+  };
+
+  const updateTodos = (val) => {
+    rawSetTodos(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      syncChannel.postMessage({ type: 'SYNC_TODOS', payload: next });
+      return next;
+    });
+  };
 
   // State synchronization wrappers that broadcast to other tabs
   const updateAttendanceHistory = (val) => {
@@ -521,7 +701,7 @@ export const AppProvider = ({ children }) => {
 
   // Core authorization checker
   const checkRoutePermission = (role, path) => {
-    if (path === '/dashboard' || path === '/profile' || path === '/history' || path === '/requests') {
+    if (path === '/dashboard' || path === '/profile' || path === '/history' || path === '/requests' || path === '/projects' || path === '/shifts') {
       return true; // All roles can access standard pages
     }
     if (path === '/hr' && (role === 'HR' || role === 'KeToan' || role === 'Admin')) {
@@ -559,6 +739,12 @@ export const AppProvider = ({ children }) => {
         setDepartments,
         positions,
         setPositions,
+        deptManagers,
+        setDeptManagers: updateDeptManagers,
+        teams,
+        setTeams: updateTeams,
+        projects,
+        setProjects: updateProjects,
         attendanceHistory,
         setAttendanceHistory: updateAttendanceHistory,
         requests,
@@ -573,6 +759,8 @@ export const AppProvider = ({ children }) => {
         setGpsWithinRange,
         systemTimeOffset,
         setSystemTimeOffset,
+        todos,
+        setTodos: updateTodos,
         firebaseLogs,
         setFirebaseLogs,
         pushLog,
@@ -580,6 +768,8 @@ export const AppProvider = ({ children }) => {
         setIsCheckedIn,
         currentShift,
         setCurrentShift,
+        workMode,
+        setWorkMode,
         checkInTime,
         setCheckInTime,
         currentPath,

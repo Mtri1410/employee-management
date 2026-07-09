@@ -4,7 +4,11 @@ import { FileText, Plus, X, Calendar, FileDown, AlertTriangle, CheckCircle, Info
 import confetti from 'canvas-confetti';
 
 export default function Requests() {
-  const { currentUser, requests, setRequests, pushLog, addNotification } = useApp();
+  const { currentUser, requests, setRequests, pushLog, addNotification, deptManagers, allUsers } = useApp();
+
+  const [activeTab, setActiveTab] = useState('my_requests');
+  const [shift, setShift] = useState('Ca hành chính (08:00 - 17:30)');
+  const [workMode, setWorkMode] = useState('Onsite');
 
   const formatDate = (dateStr) => {
     if (!dateStr || dateStr === 'Vô thời hạn' || dateStr === '—') return dateStr;
@@ -109,6 +113,8 @@ export default function Requests() {
         toDate,
         reason,
         correctedTime: requestType.includes('Giải trình') ? correctedTime : null,
+        shift: requestType === 'Đăng ký ca làm việc' ? shift : null,
+        workMode: requestType === 'Đăng ký ca làm việc' ? workMode : null,
         attachment: file ? { name: file.name, size: `${(file.size / 1024 / 1024).toFixed(1)} MB` } : null,
         status: 'Pending',
         employeeName: currentUser.fullName,
@@ -132,7 +138,30 @@ export default function Requests() {
     }, 900);
   };
 
+  const isDeptManager = deptManagers && Object.values(deptManagers).includes(currentUser.employeeId);
+  const isManager = ['Admin', 'HR', 'KeToan'].includes(currentUser.role) || isDeptManager;
+
   const myRequests = requests.filter(req => req.employeeId === currentUser.employeeId);
+  const manageRequests = requests.filter(req => {
+    if (!isManager) return false;
+    if (req.employeeId === currentUser.employeeId) return false;
+    if (['Admin', 'HR', 'KeToan'].includes(currentUser.role)) return true;
+    const reqUser = allUsers?.find(u => u.employeeId === req.employeeId);
+    if (reqUser && deptManagers[reqUser.department] === currentUser.employeeId) return true;
+    return false;
+  });
+
+  const displayedRequests = activeTab === 'manage_requests' ? manageRequests : myRequests;
+
+  const handleApproveRequest = (reqId) => {
+    setRequests(prev => prev.map(req => req.id === reqId ? { ...req, status: 'Approved' } : req));
+    pushLog(`Đã duyệt đơn #${reqId.toString().slice(-4)}`, 'success');
+  };
+
+  const handleRejectRequest = (reqId) => {
+    setRequests(prev => prev.map(req => req.id === reqId ? { ...req, status: 'Rejected' } : req));
+    pushLog(`Đã từ chối đơn #${reqId.toString().slice(-4)}`, 'warning');
+  };
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -149,10 +178,10 @@ export default function Requests() {
     <div className="space-y-6">
       
       {/* Upper header */}
-      <div className="flex justify-between items-center bg-slate-900/40 border border-slate-800 rounded-3xl p-6 shadow-xl">
+      <div className="flex justify-between items-center bg-slate-900/40 border border-slate-800 rounded-3xl p-6 shadow-xl mb-6">
         <div>
-          <h1 className="text-xl font-bold text-slate-100">Đơn từ của bạn</h1>
-          <p className="text-slate-400 text-sm mt-1">Gửi và theo dõi tiến trình phê duyệt các đơn xin nghỉ phép, chấm công bù hoặc tăng ca.</p>
+          <h1 className="text-xl font-bold text-slate-100">Quản lý Đơn từ</h1>
+          <p className="text-slate-400 text-sm mt-1">Gửi và theo dõi tiến trình phê duyệt các đơn xin phép, giải trình hoặc đăng ký ca.</p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
@@ -163,10 +192,32 @@ export default function Requests() {
         </button>
       </div>
 
+      {isManager && (
+        <div className="flex gap-2 border-b border-slate-800 mb-6">
+          <button
+            onClick={() => setActiveTab('my_requests')}
+            className={`px-4 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'my_requests' ? 'border-teal-500 text-teal-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+          >
+            Đơn của tôi
+          </button>
+          <button
+            onClick={() => setActiveTab('manage_requests')}
+            className={`px-4 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'manage_requests' ? 'border-teal-500 text-teal-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+          >
+            Quản lý Xét duyệt
+            {manageRequests.filter(r => r.status === 'Pending').length > 0 && (
+              <span className="ml-2 px-1.5 py-0.5 bg-rose-500 text-white text-[10px] rounded-full">
+                {manageRequests.filter(r => r.status === 'Pending').length}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* Requests History List */}
       <div className="bg-slate-900/30 border border-slate-855 rounded-3xl overflow-hidden shadow-xl">
         <div className="px-6 py-5 border-b border-slate-800/80 bg-slate-950/20">
-          <h3 className="font-bold text-slate-200">Danh sách đơn từ đã gửi</h3>
+          <h3 className="font-bold text-slate-200">{activeTab === 'manage_requests' ? 'Danh sách đơn cần duyệt' : 'Danh sách đơn từ đã gửi'}</h3>
         </div>
 
         <div className="overflow-x-auto">
@@ -179,23 +230,27 @@ export default function Requests() {
                 <th className="px-6 py-4">Thời Gian Yêu Cầu</th>
                 <th className="px-6 py-4">Lý Do / Minh Chứng</th>
                 <th className="px-6 py-4 text-center">Trạng Thái</th>
+                {activeTab === 'manage_requests' && <th className="px-6 py-4 text-center">Thao tác</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-850/80">
-              {myRequests.length === 0 ? (
+              {displayedRequests.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-slate-500 italic">
-                    Bạn chưa gửi bất kỳ yêu cầu nào.
+                  <td colSpan={activeTab === 'manage_requests' ? 7 : 6} className="px-6 py-12 text-center text-slate-500 italic">
+                    {activeTab === 'manage_requests' ? 'Không có đơn từ nào cần duyệt.' : 'Bạn chưa gửi bất kỳ yêu cầu nào.'}
                   </td>
                 </tr>
               ) : (
-                myRequests.map((req) => (
+                displayedRequests.map((req) => (
                   <tr key={req.id} className="hover:bg-slate-900/10 transition duration-150">
                     <td className="px-6 py-4 font-semibold text-slate-400">#REQ{req.id.toString().slice(-4)}</td>
                     <td className="px-6 py-4 text-slate-200 font-medium">{req.employeeName} <span className="text-slate-500 block text-xs">{req.employeeId}</span></td>
                     <td className="px-6 py-4 font-semibold text-slate-350">{req.type}</td>
                     <td className="px-6 py-4 text-slate-400">
-                      {req.fromDate === req.toDate ? formatDate(req.fromDate) : `${formatDate(req.fromDate)} → ${formatDate(req.toDate)}`}
+                      {req.selectedDays && req.selectedDays.length > 1
+                        ? `${req.selectedDays.length} ngày (${formatDate(req.fromDate)} - ${formatDate(req.toDate)})`
+                        : (req.fromDate === req.toDate ? formatDate(req.fromDate) : `${formatDate(req.fromDate)} → ${formatDate(req.toDate)}`)
+                      }
                     </td>
                     <td className="px-6 py-4 text-slate-400 max-w-xs">
                       <p className="truncate" title={req.reason}>{req.reason}</p>
@@ -209,6 +264,28 @@ export default function Requests() {
                     <td className="px-6 py-4 text-center">
                       {getStatusBadge(req.status)}
                     </td>
+                    {activeTab === 'manage_requests' && (
+                      <td className="px-6 py-4 text-center">
+                        {req.status === 'Pending' ? (
+                          <div className="flex justify-center gap-1.5">
+                            <button
+                              onClick={() => handleApproveRequest(req.id)}
+                              className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500 hover:text-slate-950 text-emerald-400 text-xs font-bold rounded border border-emerald-500/20 transition"
+                            >
+                              Duyệt
+                            </button>
+                            <button
+                              onClick={() => handleRejectRequest(req.id)}
+                              className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500 hover:text-slate-950 text-rose-400 text-xs font-bold rounded border border-rose-500/20 transition"
+                            >
+                              Từ chối
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-500">—</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
@@ -259,9 +336,39 @@ export default function Requests() {
                   <option value="Giải trình quên check-in">Giải trình quên check-in (Chấm công bù)</option>
                   <option value="Giải trình quên check-out">Giải trình quên check-out (Chấm công bù)</option>
                   <option value="Đăng ký tăng ca">Đăng ký tăng ca (OT)</option>
+                  <option value="Đăng ký ca làm việc">Đăng ký ca làm việc</option>
                   <option value="Đăng ký làm online">Đăng ký làm việc từ xa (Online)</option>
                 </select>
               </div>
+
+              {requestType === 'Đăng ký ca làm việc' && (
+                <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-1 duration-150">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400">Chọn Ca *</label>
+                    <select
+                      value={shift}
+                      onChange={(e) => setShift(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500 text-slate-200"
+                    >
+                      <option value="Ca hành chính (08:00 - 17:30)">Ca hành chính (08:00 - 17:30)</option>
+                      <option value="Ca sáng (08:00 - 12:00)">Ca sáng (08:00 - 12:00)</option>
+                      <option value="Ca chiều (13:00 - 17:30)">Ca chiều (13:00 - 17:30)</option>
+                      <option value="Ca đêm (18:00 - 22:00)">Ca đêm (18:00 - 22:00)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400">Hình thức *</label>
+                    <select
+                      value={workMode}
+                      onChange={(e) => setWorkMode(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500 text-slate-200"
+                    >
+                      <option value="Onsite">Tại văn phòng (Onsite)</option>
+                      <option value="Online">Làm từ xa (Online)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
 
               {/* Corrected Time input for punch corrections */}
               {requestType.includes('Giải trình') && (

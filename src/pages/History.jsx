@@ -296,6 +296,7 @@ export default function History() {
               <tr className="bg-slate-950/40 text-slate-400 font-semibold border-b border-slate-800">
                 <th className="px-6 py-4">Ngày</th>
                 <th className="px-6 py-4">Ca Làm Việc</th>
+                <th className="px-6 py-4 text-center">Hình Thức</th>
                 <th className="px-6 py-4">Giờ Vào (In)</th>
                 <th className="px-6 py-4">Giờ Ra (Out)</th>
                 <th className="px-6 py-4">Số Giờ Thực Tế</th>
@@ -305,7 +306,7 @@ export default function History() {
             <tbody className="divide-y divide-slate-850/80">
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-slate-500 italic">
+                  <td colSpan="7" className="px-6 py-12 text-center text-slate-500 italic">
                     Không tìm thấy dữ liệu chấm công cho khoảng thời gian này.
                   </td>
                 </tr>
@@ -314,6 +315,11 @@ export default function History() {
                   <tr key={log.id} className="hover:bg-slate-900/10 transition duration-150">
                     <td className="px-6 py-4 font-medium text-slate-300">{formatDate(log.date)}</td>
                     <td className="px-6 py-4 text-slate-400">{log.shift}</td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${log.workMode === 'Online' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-slate-800 text-slate-300 border border-slate-700'}`}>
+                        {log.workMode || 'Onsite'}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 text-slate-350 font-mono">{log.clockIn}</td>
                     <td className="px-6 py-4 text-slate-350 font-mono">{log.clockOut}</td>
                     <td className="px-6 py-4 text-slate-300 font-semibold">{log.actualHours}h</td>

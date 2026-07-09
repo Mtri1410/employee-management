@@ -22,6 +22,8 @@ export default function Dashboard() {
     setIsCheckedIn,
     currentShift,
     setCurrentShift,
+    workMode,
+    setWorkMode,
     attendanceHistory,
     setAttendanceHistory,
     addNotification,
@@ -31,7 +33,9 @@ export default function Dashboard() {
     allowedDistance,
     gracePeriod,
     setCurrentUser,
-    setAllUsers
+    setAllUsers,
+    requests,
+    setRequests
   } = useApp();
 
   const formatDate = (dateStr) => {
@@ -55,6 +59,9 @@ export default function Dashboard() {
   const [time, setTime] = useState(new Date());
   const [punchLoading, setPunchLoading] = useState(false);
   const [toast, setToast] = useState(null);
+
+  const [isEmergency, setIsEmergency] = useState(false);
+  const [emergencyReason, setEmergencyReason] = useState('');
 
   // Profile Edit states
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -84,6 +91,21 @@ export default function Dashboard() {
     if (!isCheckedIn) {
       const now = new Date();
       now.setMinutes(now.getMinutes() + systemTimeOffset);
+      const todayStr = now.toISOString().split('T')[0];
+      
+      const checkActive = (req, targetDay) => {
+        if (req.employeeId !== currentUser.employeeId || req.type !== 'Đăng ký ca làm việc' || req.status !== 'Approved') return false;
+        if (req.selectedDays) return req.selectedDays.includes(targetDay);
+        return req.fromDate <= targetDay && req.toDate >= targetDay;
+      }
+      const regShift = requests.find(req => checkActive(req, todayStr));
+
+      if (regShift) {
+        setCurrentShift(regShift.shift);
+        setWorkMode(regShift.workMode);
+        return;
+      }
+
       const hr = now.getHours();
       const mins = now.getMinutes();
       const currentDecimalTime = hr + mins / 60;
@@ -106,6 +128,13 @@ export default function Dashboard() {
     setTimeout(() => setToast(null), 4000);
   };
 
+  const todayStrForRender = time.toISOString().split('T')[0];
+  const activeRegShift = requests.find(req => {
+    if (req.employeeId !== currentUser.employeeId || req.type !== 'Đăng ký ca làm việc' || req.status !== 'Approved') return false;
+    if (req.selectedDays) return req.selectedDays.includes(todayStrForRender);
+    return req.fromDate <= todayStrForRender && req.toDate >= todayStrForRender;
+  });
+
   // Helper to determine if a check-in is late based on grace period configuration
   const isLateCheckIn = (checkInDateObj) => {
     if (!currentShift) return false;
@@ -124,17 +153,27 @@ export default function Dashboard() {
   };
 
   const handlePunch = () => {
-    // 1. Check IP and Geofencing coordinates prior to executing API
-    if (!officeWifi) {
-      showToast(`Sai địa chỉ IP mạng văn phòng! Bạn cần kết nối đúng WiFi công ty (IP cho phép: ${allowedWifiIp}).`, 'error');
-      pushLog(`Chấm công thất bại: Thiết bị kết nối sai IP mạng công ty (IP: ${allowedWifiIp}).`, 'error');
-      return;
+    // 1. Check IP and Geofencing coordinates prior to executing API if Onsite
+    if (workMode === 'Onsite') {
+      if (!officeWifi) {
+        showToast(`Sai địa chỉ IP mạng văn phòng! Bạn cần kết nối đúng WiFi công ty (IP cho phép: ${allowedWifiIp}).`, 'error');
+        pushLog(`Chấm công thất bại: Thiết bị kết nối sai IP mạng công ty (IP: ${allowedWifiIp}).`, 'error');
+        return;
+      }
+
+      if (!gpsWithinRange) {
+        showToast(`Bạn đang ở ngoài phạm vi công ty! Khoảng cách GPS thực tế > ${allowedDistance}m.`, 'error');
+        pushLog(`Chấm công thất bại: Tọa độ thiết bị nằm ngoài geofence (>${allowedDistance}m).`, 'error');
+        return;
+      }
     }
 
-    if (!gpsWithinRange) {
-      showToast(`Bạn đang ở ngoài phạm vi công ty! Khoảng cách GPS thực tế > ${allowedDistance}m.`, 'error');
-      pushLog(`Chấm công thất bại: Tọa độ thiết bị nằm ngoài geofence (>${allowedDistance}m).`, 'error');
-      return;
+    if (!isCheckedIn && !activeRegShift) {
+      if (!isEmergency) return; // Prevent action if somehow button is enabled
+      if (emergencyReason.trim().length < 10) {
+        showToast('Vui lòng nhập lý do giải trình khẩn cấp (tối thiểu 10 ký tự).', 'error');
+        return;
+      }
     }
 
     // Debounce/Throttle constraint: immediate lock & loading spin
@@ -153,14 +192,31 @@ export default function Dashboard() {
         
         pushLog(`Chấm công vào (Check-in) thành công ca: ${currentShift}. Trạng thái WiFi: OK, GPS: OK.`, 'success');
         showToast('Check-in thành công!', 'success');
-        addNotification('Chấm công thành công', `${currentUser.fullName} đã Check-in ca: ${currentShift}`, 'success');
-        
+        if (!activeRegShift && isEmergency) {
+          const newRequest = {
+            id: Date.now() + 1,
+            type: 'Giải trình check-in khẩn cấp',
+            fromDate: actualCheckInDate.toISOString().split('T')[0],
+            toDate: actualCheckInDate.toISOString().split('T')[0],
+            reason: emergencyReason,
+            status: 'Pending',
+            employeeName: currentUser.fullName,
+            employeeId: currentUser.employeeId,
+            submitDate: actualCheckInDate.toISOString().split('T')[0]
+          };
+          setRequests(prev => [newRequest, ...prev]);
+          setIsEmergency(false);
+          setEmergencyReason('');
+          pushLog(`Đã tự động tạo đơn giải trình khẩn cấp chờ duyệt.`, 'info');
+        }
+
         // Append active check-in log row directly to History list
         const clockInStr = actualCheckInDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const newActiveLog = {
           id: Date.now(),
           date: actualCheckInDate.toISOString().split('T')[0],
           shift: currentShift,
+          workMode: workMode,
           clockIn: clockInStr,
           clockOut: '-',
           actualHours: 0,
@@ -218,6 +274,7 @@ export default function Dashboard() {
               id: Date.now(),
               date: todayStr,
               shift: currentShift,
+              workMode: workMode,
               clockIn: clockInStr,
               clockOut: clockOutStr,
               actualHours: parseFloat(diffHours),
@@ -331,20 +388,100 @@ export default function Dashboard() {
           
           {/* Shift Selection Block */}
           <div className="flex-1 space-y-4 w-full">
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">
-                Ca Làm Việc Đăng Ký *
-              </label>
-              <select
-                disabled={isCheckedIn}
-                value={currentShift}
-                onChange={(e) => setCurrentShift(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/30 text-slate-200 transition disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {shifts.map(shift => (
-                  <option key={shift.id} value={shift.name}>{shift.name}</option>
-                ))}
-              </select>
+            <div className="grid grid-cols-1 gap-4">
+              {activeRegShift ? (
+                <>
+                  <div className="p-3 bg-teal-500/10 border border-teal-500/20 rounded-xl text-teal-400 text-sm flex gap-2">
+                    <CheckCircle2 className="w-5 h-5 shrink-0" />
+                    <span>Hệ thống nhận diện ca đã đăng ký: <strong>{activeRegShift.shift}</strong> ({activeRegShift.workMode}).</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">
+                        Ca Làm Việc Đăng Ký *
+                      </label>
+                      <select
+                        disabled
+                        value={currentShift}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none text-slate-400 cursor-not-allowed opacity-70"
+                      >
+                        <option value={currentShift}>{currentShift}</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">
+                        Hình thức làm việc *
+                      </label>
+                      <select
+                        disabled
+                        value={workMode}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none text-slate-400 cursor-not-allowed opacity-70"
+                      >
+                        <option value={workMode}>{workMode === 'Onsite' ? 'Làm tại văn phòng (Onsite)' : 'Làm từ xa (Online)'}</option>
+                      </select>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-sm flex items-start gap-2">
+                    <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                    <div>
+                      Bạn chưa có ca làm việc được duyệt cho hôm nay. Nếu đây là trường hợp đột xuất, vui lòng chọn <strong>Xử lý khẩn cấp</strong>.
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 text-slate-300 font-semibold cursor-pointer select-none">
+                    <input type="checkbox" checked={isEmergency} onChange={e => setIsEmergency(e.target.checked)} disabled={isCheckedIn} className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-amber-500 focus:ring-offset-slate-900" />
+                    Xử lý tình huống khẩn cấp / Tăng ca đột xuất
+                  </label>
+                  
+                  {isEmergency && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-top-1">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">
+                            Ca Khẩn Cấp *
+                          </label>
+                          <select
+                            disabled={isCheckedIn}
+                            value={currentShift}
+                            onChange={(e) => setCurrentShift(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 text-slate-200 transition"
+                          >
+                            {shifts.map(shift => (
+                              <option key={shift.id} value={shift.name}>{shift.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">
+                            Hình thức làm việc *
+                          </label>
+                          <select
+                            disabled={isCheckedIn}
+                            value={workMode}
+                            onChange={(e) => setWorkMode(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 text-slate-200 transition"
+                          >
+                            <option value="Onsite">Làm tại văn phòng (Onsite)</option>
+                            <option value="Online">Làm từ xa (Online)</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Lý do giải trình *</label>
+                        <textarea
+                          disabled={isCheckedIn}
+                          value={emergencyReason}
+                          onChange={(e) => setEmergencyReason(e.target.value)}
+                          placeholder="Ví dụ: Tăng ca gấp theo yêu cầu dự án ABC..."
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-amber-500 text-slate-200 resize-none h-20"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
             
             <div className="flex gap-2.5 p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800/80 text-xs">
@@ -352,7 +489,7 @@ export default function Dashboard() {
               <p className="text-slate-400 leading-relaxed">
                 {isCheckedIn 
                   ? 'Đã khóa chọn ca. Bạn không thể đổi ca làm việc giữa chừng sau khi đã Check-in.' 
-                  : 'Hệ thống tự động đề xuất ca gần nhất theo giờ hệ thống. Hãy xác nhận đúng ca trước khi Check-in.'
+                  : (activeRegShift ? 'Hệ thống tự động khóa ca làm việc theo đơn đăng ký đã duyệt.' : 'Bạn chỉ được Check-in sau khi chọn Xử lý khẩn cấp.')
                 }
               </p>
             </div>
@@ -362,20 +499,27 @@ export default function Dashboard() {
           <div className="flex flex-col items-center justify-center shrink-0 w-full md:w-auto">
             <button
               onClick={handlePunch}
-              disabled={punchLoading || (!officeWifi && !gpsWithinRange)}
+              disabled={punchLoading || (!isCheckedIn && workMode === 'Onsite' && (!officeWifi || !gpsWithinRange)) || (!isCheckedIn && !activeRegShift && !isEmergency)}
               className={`w-44 h-44 rounded-full flex flex-col items-center justify-center gap-2.5 font-bold transition-all duration-300 transform active:scale-95 border-4 focus:outline-none select-none relative ${
                 punchLoading 
                   ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
-                  : !officeWifi || !gpsWithinRange
+                  : (!isCheckedIn && !activeRegShift && !isEmergency)
                     ? 'bg-slate-850 border-slate-800 text-slate-500 cursor-not-allowed'
-                    : isCheckedIn
-                      ? 'bg-gradient-to-br from-rose-500 to-orange-600 hover:from-rose-600 hover:to-orange-700 border-rose-400 text-slate-950 glow-red'
-                      : 'bg-gradient-to-br from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 border-emerald-300 text-slate-950 glow-green'
+                    : (!isCheckedIn && workMode === 'Onsite' && (!officeWifi || !gpsWithinRange))
+                      ? 'bg-slate-850 border-slate-800 text-slate-500 cursor-not-allowed'
+                      : isCheckedIn
+                        ? 'bg-gradient-to-br from-rose-500 to-orange-600 hover:from-rose-600 hover:to-orange-700 border-rose-400 text-slate-950 glow-red'
+                        : (isEmergency ? 'bg-gradient-to-br from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 border-amber-300 text-slate-950 glow-amber' : 'bg-gradient-to-br from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 border-emerald-300 text-slate-950 glow-green')
               }`}
             >
               {punchLoading ? (
                 <div className="w-10 h-10 border-4 border-teal-400 border-t-transparent rounded-full animate-spin"></div>
-              ) : !officeWifi || !gpsWithinRange ? (
+              ) : (!isCheckedIn && !activeRegShift && !isEmergency) ? (
+                <>
+                  <AlertCircle className="w-8 h-8 text-slate-500" />
+                  <span className="text-sm tracking-wide">Chưa có ca</span>
+                </>
+              ) : (!isCheckedIn && workMode === 'Onsite' && (!officeWifi || !gpsWithinRange)) ? (
                 <>
                   <Compass className="w-8 h-8 text-slate-500" />
                   <span className="text-sm tracking-wide">Bị khóa do IP/GPS</span>

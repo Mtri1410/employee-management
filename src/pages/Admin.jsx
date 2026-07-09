@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext';
-import { Settings, Folder, FileCheck, FileX, Download, Plus, Trash2, Edit2, AlertCircle, UserPlus, Lock, Unlock } from 'lucide-react';
+import { Settings, Folder, FileCheck, FileX, Download, Plus, Trash2, Edit2, AlertCircle, UserPlus, Lock, Unlock, ShieldCheck } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export default function Admin() {
@@ -11,6 +12,10 @@ export default function Admin() {
     setDepartments,
     positions,
     setPositions,
+    deptManagers,
+    setDeptManagers,
+    teams,
+    setTeams,
     requests,
     setRequests,
     allUsers,
@@ -39,6 +44,108 @@ export default function Admin() {
       }
     }
     return dateStr;
+  };
+
+  // Department Manager and Team Management States
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [editingTeam, setEditingTeam] = useState(null); // null if creating
+  const [teamForm, setTeamForm] = useState({ name: '', department: '', leaderId: '', memberIds: [] });
+  const [teamSearch, setTeamSearch] = useState('');
+  const [tempDeptManagers, setTempDeptManagers] = useState({});
+
+  useEffect(() => {
+    if (deptManagers) {
+      setTempDeptManagers(deptManagers);
+    }
+  }, [deptManagers]);
+
+  const handleSaveDeptManagers = (e) => {
+    e.preventDefault();
+    setDeptManagers(tempDeptManagers);
+    pushLog('Admin cập nhật phân bổ Trưởng phòng cho các phòng ban thành công.', 'success');
+    showDialog({
+      title: 'Thành công',
+      message: 'Đã cập nhật danh sách Trưởng phòng ban thành công.',
+      type: 'success'
+    });
+  };
+
+  const handleOpenAddTeam = () => {
+    setEditingTeam(null);
+    setTeamForm({
+      name: '',
+      department: departments[0] || '',
+      leaderId: allUsers[0]?.employeeId || '',
+      memberIds: []
+    });
+    setIsTeamModalOpen(true);
+  };
+
+  const handleOpenEditTeam = (team) => {
+    setEditingTeam(team);
+    setTeamForm({
+      name: team.name,
+      department: team.department,
+      leaderId: team.leaderId,
+      memberIds: team.memberIds || []
+    });
+    setIsTeamModalOpen(true);
+  };
+
+  const handleDeleteTeam = (teamId) => {
+    const targetTeam = teams.find(t => t.id === teamId);
+    showDialog({
+      title: 'Xác nhận xóa nhóm',
+      message: `Bạn có chắc chắn muốn xóa nhóm "${targetTeam?.name}" không? Thao tác này không thể hoàn tác.`,
+      type: 'warning',
+      onConfirm: () => {
+        setTeams(prev => prev.filter(t => t.id !== teamId));
+        pushLog(`Admin đã xóa nhóm: ${targetTeam?.name}`, 'success');
+      }
+    });
+  };
+
+  const handleSaveTeam = (e) => {
+    e.preventDefault();
+    if (!teamForm.name.trim()) {
+      showDialog({ title: 'Lỗi nhập liệu', message: 'Vui lòng nhập tên nhóm.', type: 'warning' });
+      return;
+    }
+    if (!teamForm.department) {
+      showDialog({ title: 'Lỗi nhập liệu', message: 'Vui lòng chọn phòng ban cho nhóm.', type: 'warning' });
+      return;
+    }
+
+    if (editingTeam) {
+      // Editing existing team
+      setTeams(prev => prev.map(t => {
+        if (t.id === editingTeam.id) {
+          return {
+            ...t,
+            name: teamForm.name.trim(),
+            department: teamForm.department,
+            leaderId: teamForm.leaderId,
+            memberIds: teamForm.memberIds
+          };
+        }
+        return t;
+      }));
+      pushLog(`Admin cập nhật thông tin nhóm: ${teamForm.name.trim()}`, 'success');
+      showDialog({ title: 'Thành công', message: `Đã cập nhật thông tin nhóm "${teamForm.name.trim()}" thành công.`, type: 'success' });
+    } else {
+      // Add new team
+      const newTeam = {
+        id: `t_${Date.now()}`,
+        name: teamForm.name.trim(),
+        department: teamForm.department,
+        leaderId: teamForm.leaderId,
+        memberIds: teamForm.memberIds
+      };
+      setTeams(prev => [...prev, newTeam]);
+      pushLog(`Admin tạo mới nhóm: ${newTeam.name}`, 'success');
+      showDialog({ title: 'Thành công', message: `Đã tạo mới nhóm "${newTeam.name}" thành công.`, type: 'success' });
+    }
+    setIsTeamModalOpen(false);
   };
 
   // Account Locking Reason States
@@ -826,6 +933,139 @@ export default function Admin() {
 
       </div>
 
+      {/* 2. Department Managers & Teams Management */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Panel 1: Department Managers */}
+        <div className="bg-slate-900/30 border border-slate-855 rounded-3xl p-6 shadow-xl space-y-4">
+          <div>
+            <h3 className="font-bold text-slate-200">Quản lý Trưởng Phòng Ban</h3>
+            <p className="text-slate-500 text-xs mt-0.5">Bổ nhiệm quản lý cấp cao điều hành các phòng ban trong công ty.</p>
+          </div>
+          
+          <form onSubmit={handleSaveDeptManagers} className="space-y-4 pt-1">
+            <div className="bg-slate-950 p-3 rounded-2xl border border-slate-850 space-y-3.5 max-h-[260px] overflow-y-auto">
+              {departments.map((dept) => (
+                <div key={dept} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-900/40 p-3 rounded-xl border border-slate-800 text-xs">
+                  <span className="font-bold text-slate-350">{dept}</span>
+                  
+                  {/* Select Manager dropdown */}
+                  <select
+                    value={tempDeptManagers[dept] || ''}
+                    onChange={(e) => setTempDeptManagers(prev => ({ ...prev, [dept]: e.target.value }))}
+                    className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500 min-w-[180px] cursor-pointer"
+                  >
+                    <option value="">-- Chưa bổ nhiệm --</option>
+                    {allUsers.map(user => (
+                      <option key={user.employeeId} value={user.employeeId}>
+                        {user.fullName} ({user.employeeId})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="submit"
+                className="px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow-lg shadow-teal-500/10"
+              >
+                <ShieldCheck className="w-4 h-4" /> Lưu bổ nhiệm Trưởng phòng
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Panel 2: Groups/Teams Management */}
+        <div className="bg-slate-900/30 border border-slate-855 rounded-3xl p-6 shadow-xl flex flex-col justify-between space-y-4">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-slate-200">Quản lý Nhóm / Tổ làm việc</h3>
+                <p className="text-slate-500 text-xs mt-0.5">Tạo lập, phân công và kiểm soát nhân sự theo tổ nhóm trực thuộc.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleOpenAddTeam}
+                className="bg-teal-500 hover:bg-teal-600 text-slate-950 font-bold px-3 py-2 rounded-xl text-[11px] flex items-center gap-1 transition shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" /> Tạo nhóm
+              </button>
+            </div>
+
+            {/* Team search query */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Tìm nhóm, phòng ban, trưởng nhóm..."
+                value={teamSearch}
+                onChange={(e) => setTeamSearch(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-3 pr-8 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+              />
+              {teamSearch && <button onClick={() => setTeamSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs">✕</button>}
+            </div>
+          </div>
+
+          {/* Teams list */}
+          <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-850 flex-1 max-h-[220px] overflow-y-auto space-y-2">
+            {teams.filter(t => 
+              t.name.toLowerCase().includes(teamSearch.toLowerCase()) ||
+              t.department.toLowerCase().includes(teamSearch.toLowerCase()) ||
+              (allUsers.find(u => u.employeeId === t.leaderId)?.fullName || '').toLowerCase().includes(teamSearch.toLowerCase())
+            ).length === 0 ? (
+              <div className="text-center text-slate-600 italic text-xs py-8">
+                Không tìm thấy tổ nhóm nào phù hợp.
+              </div>
+            ) : (
+              teams.filter(t => 
+                t.name.toLowerCase().includes(teamSearch.toLowerCase()) ||
+                t.department.toLowerCase().includes(teamSearch.toLowerCase()) ||
+                (allUsers.find(u => u.employeeId === t.leaderId)?.fullName || '').toLowerCase().includes(teamSearch.toLowerCase())
+              ).map((team) => {
+                const leader = allUsers.find(u => u.employeeId === team.leaderId);
+                const memberCount = team.memberIds ? team.memberIds.length : 0;
+                return (
+                  <div key={team.id} className="flex justify-between items-center bg-slate-900/40 p-3 rounded-xl border border-slate-800 hover:border-slate-750 transition text-xs gap-3">
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-200 truncate">{team.name}</span>
+                        <span className="px-2 py-0.5 bg-slate-800 text-slate-400 rounded-full text-[9px] font-bold shrink-0">{team.department}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-550 flex flex-col sm:flex-row sm:gap-3">
+                        <span>Trưởng nhóm: <strong className="text-slate-350">{leader ? leader.fullName : 'Chưa xếp'}</strong></span>
+                        <span>Sỹ số: <strong className="text-slate-350">{memberCount} nhân sự</strong></span>
+                      </div>
+                    </div>
+                    
+                    {/* Action buttons */}
+                    <div className="flex gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditTeam(team)}
+                        className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
+                        title="Sửa nhóm"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTeam(team.id)}
+                        className="p-1.5 bg-slate-800 hover:bg-rose-950 text-rose-400 rounded-lg transition border border-transparent hover:border-rose-900/50"
+                        title="Xóa nhóm"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+      </div>
+
       {/* 2.5 User Account Manager Grid */}
       <div className="bg-slate-900/30 border border-slate-855 rounded-3xl overflow-hidden shadow-xl">
         <div className="px-6 py-5 border-b border-slate-800/80 bg-slate-950/20">
@@ -1605,6 +1845,129 @@ export default function Admin() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Team Add/Edit Modal via Portal */}
+      {isTeamModalOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-[4px] flex items-center justify-center z-[9999] p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800/80">
+              <div>
+                <h3 className="font-bold text-slate-100 text-base">
+                  {editingTeam ? '📝 Chỉnh sửa Nhóm / Tổ làm việc' : '➕ Tạo Nhóm / Tổ làm việc mới'}
+                </h3>
+                <p className="text-slate-500 text-xs mt-0.5">Thiết lập bộ máy quản lý nhóm nhỏ, gán trưởng nhóm và thành viên.</p>
+              </div>
+              <button
+                onClick={() => setIsTeamModalOpen(false)}
+                className="text-slate-500 hover:text-slate-300 transition text-xl font-bold px-2"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Form */}
+            <form onSubmit={handleSaveTeam}>
+              <div className="p-6 space-y-4">
+                {/* Team Name */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Tên nhóm / tổ *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ví dụ: Nhóm Lập Trình Frontend"
+                    value={teamForm.name}
+                    onChange={(e) => setTeamForm(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+
+                {/* Department */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Thuộc phòng ban *</label>
+                  <select
+                    value={teamForm.department}
+                    onChange={(e) => setTeamForm(prev => ({ ...prev, department: e.target.value, leaderId: '', memberIds: [] }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  >
+                    {departments.map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Team Leader */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Trưởng nhóm (Team Leader) *</label>
+                  <select
+                    value={teamForm.leaderId}
+                    onChange={(e) => setTeamForm(prev => ({ ...prev, leaderId: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-teal-500"
+                  >
+                    <option value="">-- Chọn trưởng nhóm --</option>
+                    {allUsers.filter(u => u.department === teamForm.department && !u.isLocked).map(u => (
+                      <option key={u.employeeId} value={u.employeeId}>{u.fullName} ({u.employeeId})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Team Members List Checkboxes */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-400 block">Thành viên trong nhóm (Thuộc phòng ban {teamForm.department})</label>
+                  <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 max-h-48 overflow-y-auto space-y-2">
+                    {allUsers.filter(u => u.department === teamForm.department && !u.isLocked).length === 0 ? (
+                      <span className="text-xs text-slate-600 italic block py-2 text-center">Không có nhân sự nào khác trong phòng ban này.</span>
+                    ) : (
+                      allUsers.filter(u => u.department === teamForm.department && !u.isLocked).map(user => {
+                        const isChecked = teamForm.memberIds.includes(user.employeeId);
+                        return (
+                          <label key={user.employeeId} className="flex items-center gap-3.5 bg-slate-900/30 hover:bg-slate-900/60 p-2.5 rounded-xl border border-slate-850 hover:border-slate-800 transition cursor-pointer text-xs select-none">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                setTeamForm(prev => {
+                                  const nextMembers = isChecked
+                                    ? prev.memberIds.filter(id => id !== user.employeeId)
+                                    : [...prev.memberIds, user.employeeId];
+                                  return { ...prev, memberIds: nextMembers };
+                                });
+                              }}
+                              className="w-4 h-4 rounded bg-slate-950 border-slate-800 text-teal-500 focus:ring-0 cursor-pointer"
+                            />
+                            <div>
+                              <span className="font-semibold text-slate-200 block">{user.fullName}</span>
+                              <span className="text-[10px] text-slate-550 font-mono">{user.employeeId} | {user.position}</span>
+                            </div>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-800/80 bg-slate-950/20">
+                <button
+                  type="button"
+                  onClick={() => setIsTeamModalOpen(false)}
+                  className="px-5 py-2.5 bg-slate-950 hover:bg-slate-850 text-slate-400 rounded-xl text-xs font-semibold transition border border-slate-800"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 text-xs font-bold rounded-xl transition shadow-lg shadow-teal-500/10"
+                >
+                  Lưu nhóm
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* Account Locking Reason Input Modal */}

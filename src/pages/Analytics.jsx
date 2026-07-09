@@ -8,6 +8,7 @@ export default function Analytics() {
   const [selectedMonth, setSelectedMonth] = useState(7);
   const [selectedYear, setSelectedYear] = useState(2026);
   const [selectedDay, setSelectedDay] = useState('all'); // 'all' or number '1', '2', etc.
+  const [selectedDept, setSelectedDept] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Get total days in the selected month
@@ -22,10 +23,19 @@ export default function Analytics() {
     ? `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`
     : `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
 
+  const getUserDept = (empId) => {
+    const user = allUsers.find(u => u.employeeId === empId);
+    return user ? user.department : '';
+  };
+
   // Filter logs for the selected period (month or specific day)
-  const filteredLogs = isMonthly 
+  const baseLogs = isMonthly 
     ? attendanceHistory.filter(log => log.date.startsWith(targetDateStr))
     : attendanceHistory.filter(log => log.date === targetDateStr);
+
+  const filteredLogs = selectedDept
+    ? baseLogs.filter(log => getUserDept(log.employeeId) === selectedDept)
+    : baseLogs;
 
   // 1. Staff Headcount by Department (active users)
   const getDeptHeadcount = () => {
@@ -38,7 +48,7 @@ export default function Analytics() {
   const maxHeadcount = Math.max(...deptData.map(d => d.count), 1);
 
   // 2. Attendance Status Distribution
-  const totalEmployees = allUsers.filter(u => !u.isLocked).length;
+  const totalEmployees = allUsers.filter(u => !u.isLocked && (!selectedDept || u.department === selectedDept)).length;
   
   const getAttendanceStats = () => {
     const onTimeCount = filteredLogs.filter(l => l.status === 'Hợp lệ' || l.status === 'Đang làm việc').length;
@@ -83,7 +93,7 @@ export default function Analytics() {
 
   // 4. Employee Detailed Roster / Leaderboard for the selected month or day
   const getLeaderboardOrRoster = () => {
-    const activeUsers = allUsers.filter(u => !u.isLocked);
+    const activeUsers = allUsers.filter(u => !u.isLocked && (!selectedDept || u.department === selectedDept));
     
     if (isMonthly) {
       // Monthly Leaderboard mode
@@ -186,11 +196,26 @@ export default function Analytics() {
             <select 
               value={selectedDay} 
               onChange={(e) => setSelectedDay(e.target.value)}
-              className="bg-transparent border-0 text-xs font-bold text-slate-300 focus:outline-none cursor-pointer"
+              className="bg-transparent border-0 text-xs font-bold text-slate-300 focus:outline-none cursor-pointer pr-4"
             >
               <option value="all" className="bg-slate-900">Cả tháng</option>
               {Array.from({ length: daysCount }, (_, i) => i + 1).map(d => (
                 <option key={d} value={d} className="bg-slate-900">Ngày {String(d).padStart(2, '0')}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Department Selector */}
+          <div className="flex items-center border-l border-slate-800 pl-2">
+            <span className="text-[10px] text-slate-500 uppercase font-black mr-1">Bộ phận:</span>
+            <select 
+              value={selectedDept} 
+              onChange={(e) => setSelectedDept(e.target.value)}
+              className="bg-transparent border-0 text-xs font-bold text-slate-300 focus:outline-none cursor-pointer"
+            >
+              <option value="" className="bg-slate-900">Tất cả phòng ban</option>
+              {departments.map(dept => (
+                <option key={dept} value={dept} className="bg-slate-900">{dept}</option>
               ))}
             </select>
           </div>

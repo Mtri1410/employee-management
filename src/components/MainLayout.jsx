@@ -17,8 +17,13 @@ import {
   AlertTriangle,
   Sun,
   Moon,
-  BarChart2
+  BarChart2,
+  Briefcase,
+  Calendar,
+  CheckSquare
 } from 'lucide-react';
+
+import TodoPanel from './TodoPanel';
 
 export default function MainLayout({ children }) {
   const { 
@@ -35,12 +40,15 @@ export default function MainLayout({ children }) {
     setUndoToast,
     theme,
     setTheme,
-    allUsers
+    allUsers,
+    projects,
+    todos
   } = useApp();
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isTodoOpen, setIsTodoOpen] = useState(false);
 
   const handleLogout = () => {
     setIsLoggedIn(false);
@@ -61,8 +69,10 @@ export default function MainLayout({ children }) {
   // Sidebar navigation menu items
   const menuItems = [
     { name: 'Dashboard Chấm công', path: '/dashboard', icon: LayoutDashboard, roles: ['NhanVien', 'KeToan', 'HR', 'Admin'] },
+    { name: 'Đăng ký Ca', path: '/shifts', icon: Calendar, roles: ['NhanVien', 'KeToan', 'HR', 'Admin'] },
     { name: 'Lịch sử Chấm công', path: '/history', icon: History, roles: ['NhanVien', 'KeToan', 'HR', 'Admin'] },
     { name: 'Quản lý Đơn từ', path: '/requests', icon: FileText, roles: ['NhanVien', 'KeToan', 'HR', 'Admin'] },
+    { name: 'Quản lý Dự án', path: '/projects', icon: Briefcase, roles: ['NhanVien', 'KeToan', 'HR', 'Admin'] },
     { name: 'Phân hệ Nhân Sự', path: '/hr', icon: Users, roles: ['HR', 'KeToan', 'Admin'] },
     { name: 'Phân hệ Kế Toán', path: '/accounting', icon: BadgeCent, roles: ['KeToan', 'HR', 'Admin'] },
     { name: 'Thống kê & Báo cáo', path: '/analytics', icon: BarChart2, roles: ['HR', 'KeToan', 'Admin'] },
@@ -81,6 +91,14 @@ export default function MainLayout({ children }) {
     }).length;
   };
   const hrExpiringCount = getHrExpiringCount();
+
+  // Calculate pending projects for approval badge
+  const getPendingProjectsCount = () => {
+    if (!projects) return 0;
+    if (!['Admin', 'HR', 'KeToan'].includes(currentUser.role)) return 0;
+    return projects.filter(p => p.status === 'Chờ duyệt').length;
+  };
+  const pendingProjectsCount = getPendingProjectsCount();
 
   // Filtering links based on user role (UI Level Truncation)
   const allowedMenuItems = menuItems.filter(item => item.roles.includes(currentUser.role));
@@ -152,6 +170,11 @@ export default function MainLayout({ children }) {
                   {item.path === '/hr' && hrExpiringCount > 0 && (
                     <span className="ml-auto w-5 h-5 bg-rose-500 rounded-full flex items-center justify-center text-[10px] font-black text-slate-100 animate-pulse">
                       {hrExpiringCount}
+                    </span>
+                  )}
+                  {item.path === '/projects' && pendingProjectsCount > 0 && (
+                    <span className="ml-auto w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center text-[10px] font-black text-slate-950 animate-pulse">
+                      {pendingProjectsCount}
                     </span>
                   )}
                 </button>
@@ -264,6 +287,20 @@ export default function MainLayout({ children }) {
               title={theme === 'dark' ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
             >
               {theme === 'dark' ? <Sun className="w-5 h-5 text-amber-400 animate-in spin-in-12 duration-300" /> : <Moon className="w-5 h-5 text-indigo-400 animate-in spin-in-12 duration-300" />}
+            </button>
+
+            {/* Todo Panel Toggle */}
+            <button
+              onClick={() => setIsTodoOpen(true)}
+              className="relative p-2 text-slate-400 hover:text-slate-200 bg-slate-855 border border-slate-800 rounded-xl transition focus:outline-none"
+              title="Ghi chú công việc"
+            >
+              <CheckSquare className="w-5 h-5" />
+              {todos && todos.filter(t => t.employeeId === currentUser.employeeId && !t.completed).length > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center text-[10px] font-black text-slate-950 animate-pulse">
+                  {todos.filter(t => t.employeeId === currentUser.employeeId && !t.completed).length}
+                </span>
+              )}
             </button>
 
             {/* Notification Bell */}
@@ -391,11 +428,16 @@ export default function MainLayout({ children }) {
                           : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
                       }`}
                     >
-                      <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-teal-400' : 'text-slate-400'}`} />
+                  <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-teal-400' : 'text-slate-400'}`} />
                       <span>{item.name}</span>
                       {item.path === '/hr' && hrExpiringCount > 0 && (
                         <span className="ml-auto w-5 h-5 bg-rose-500 rounded-full flex items-center justify-center text-[10px] font-black text-slate-100 animate-pulse">
                           {hrExpiringCount}
+                        </span>
+                      )}
+                      {item.path === '/projects' && pendingProjectsCount > 0 && (
+                        <span className="ml-auto w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center text-[10px] font-black text-slate-950 animate-pulse">
+                          {pendingProjectsCount}
                         </span>
                       )}
                     </button>
@@ -431,6 +473,9 @@ export default function MainLayout({ children }) {
           </aside>
         </div>
       )}
+      
+      {/* Todo Panel */}
+      <TodoPanel isOpen={isTodoOpen} onClose={() => setIsTodoOpen(false)} />
     </div>
   );
 }
