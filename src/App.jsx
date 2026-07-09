@@ -8,6 +8,8 @@ import HR from './pages/HR';
 import Accounting from './pages/Accounting';
 import Admin from './pages/Admin';
 import Analytics from './pages/Analytics';
+import Projects from './pages/Projects';
+import ShiftRegistration from './pages/ShiftRegistration';
 
 import MainLayout from './components/MainLayout';
 import MandatoryUpdateModal from './components/MandatoryUpdateModal';
@@ -29,6 +31,8 @@ function AppContent() {
     switch (currentPath) {
       case '/dashboard':
         return <Dashboard />;
+      case '/shifts':
+        return <ShiftRegistration />;
       case '/history':
         return <History />;
       case '/requests':
@@ -41,6 +45,8 @@ function AppContent() {
         return <Admin />;
       case '/analytics':
         return <Analytics />;
+      case '/projects':
+        return <Projects />;
       default:
         return <Dashboard />;
     }
